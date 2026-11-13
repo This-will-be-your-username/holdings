@@ -12,6 +12,16 @@ import (
 
 var httpc = &http.Client{Timeout: 25 * time.Second}
 
+const histYears = 5
+
+// benchmarks are fetched for market context (symbol -> display name).
+var benchmarks = map[string]string{
+	"^AXJO":    "S&P/ASX 200",
+	"^GSPC":    "S&P 500",
+	"^VIX":     "VIX (US volatility)",
+	"AUDUSD=X": "AUD / USD",
+}
+
 func httpGet(u string) ([]byte, error) {
 	req, _ := http.NewRequest("GET", u, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; fundtrack/1.0)")
@@ -215,7 +225,11 @@ func (a *App) Refresh() (string, error) {
 				continue
 			}
 			d, _ := time.Parse(dateFmt, e)
-			jobs = append(jobs, job{sym, d.AddDate(0, 0, -10)})
+			from := d.AddDate(0, 0, -10)
+			if lim := time.Now().AddDate(-histYears, 0, 0); lim.Before(from) {
+				from = lim // keep several years of history for trend analysis
+			}
+			jobs = append(jobs, job{sym, from})
 			if inst.Currency != "AUD" {
 				if f, ok := fxFrom[inst.Currency]; !ok || d.Before(f) {
 					fxFrom[inst.Currency] = d
@@ -239,6 +253,18 @@ func (a *App) Refresh() (string, error) {
 			continue
 		}
 		quotes[j.sym] = q
+	}
+	// wider-market context for the outlook: indices, volatility and the dollar
+	bench := map[string]map[string]float64{}
+	if len(jobs) > 0 {
+		for sym := range benchmarks {
+			q, err := fetchYahoo(sym, time.Now().AddDate(-histYears, 0, 0))
+			if err != nil {
+				errs = append(errs, err.Error())
+				continue
+			}
+			bench[sym] = q.Closes
+		}
 	}
 	type asxDiv struct {
 		ex   string
@@ -283,6 +309,9 @@ func (a *App) Refresh() (string, error) {
 			for d, v := range q.Divs {
 				db.Divs[sym][d] = v
 			}
+		}
+		for sym, m := range bench {
+			db.Bench[sym] = m
 		}
 		for sym, a := range asx {
 			if db.DivInfo[sym] == nil {

@@ -70,6 +70,7 @@ type DivInfo struct {
 type DB struct {
 	Settings    Settings                      `json:"settings"`
 	DivInfo     map[string]map[string]DivInfo `json:"div_info"` // symbol -> ex-date -> info
+	Bench       map[string]map[string]float64 `json:"bench"`    // market benchmarks (indices, FX, VIX): symbol -> date -> close
 	Instruments map[string]*Instrument        `json:"instruments"`
 	Txns        []Txn                         `json:"txns"`
 	Prices      map[string]map[string]float64 `json:"prices"` // fetched closes: symbol -> date -> price
@@ -115,6 +116,9 @@ func (d *DB) init() {
 	}
 	if d.FX == nil {
 		d.FX = map[string]map[string]float64{}
+	}
+	if d.Bench == nil {
+		d.Bench = map[string]map[string]float64{}
 	}
 	if d.DivInfo == nil {
 		d.DivInfo = map[string]map[string]DivInfo{}

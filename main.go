@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 	a := &App{store: store, pages: map[string]*template.Template{}}
-	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator"} {
+	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook"} {
 		a.pages[p] = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/base.html", "web/"+p+".html"))
 	}
 
@@ -82,7 +82,7 @@ func main() {
 	}()
 
 	log.Printf("fundtrack listening on http://%s (data: %s)", addr, dataFile)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	log.Fatal(http.ListenAndServe(addr, withGzip(mux)))
 }
 
 func env(k, d string) string {
@@ -139,7 +139,8 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		lastFmt = t.Local().Format("2 Jan 15:04")
 	}
 	a.render(w, r, "dashboard", map[string]any{
-		"R": res, "Chart": chartSVG(res.Chart), "Last": lastFmt, "Empty": len(res.Rows) == 0,
+		"R": res, "Last": lastFmt, "Empty": len(res.Rows) == 0, "HasChart": len(res.Chart) > 1,
+		"Charts": chartJS(map[string]*ChartCfg{"value": portfolioChart(res.Chart)}),
 	})
 }
 
@@ -408,7 +409,35 @@ var funcs = template.FuncMap{
 	},
 	"short": func(s string) string { return strings.TrimSuffix(s, ".AX") },
 	"abs":   math.Abs,
-	"addf":  func(a, b float64) float64 { return a + b },
+	"sub":   func(a, b float64) float64 { return a - b },
+	"pcg": func(v, base float64) float64 { // % change of v over base
+		if base == 0 {
+			return 0
+		}
+		return (v/base - 1) * 100
+	},
+	"pctn": func(v float64) string { // percentage that tolerates "no data"
+		switch {
+		case math.IsNaN(v):
+			return "—"
+		case v > 0.005:
+			return fmt.Sprintf("+%.1f%%", v)
+		}
+		return fmt.Sprintf("%.1f%%", v)
+	},
+	"f1": func(v float64) string {
+		if math.IsNaN(v) {
+			return "—"
+		}
+		return fmt.Sprintf("%.1f", v)
+	},
+	"f2": func(v float64) string {
+		if math.IsNaN(v) {
+			return "—"
+		}
+		return fmt.Sprintf("%.2f", v)
+	},
+	"addf": func(a, b float64) float64 { return a + b },
 	"typeLabel": func(t string) string {
 		return map[string]string{"buy": "Buy", "sell": "Sell", "dividend": "Distribution", "drp": "Reinvested"}[t]
 	},
@@ -443,58 +472,4 @@ func commas2(s string) string {
 		b.WriteRune(c)
 	}
 	return b.String() + frac
-}
-
-// chartSVG renders portfolio value vs net invested as an inline SVG.
-func chartSVG(pts []ChartPt) template.HTML {
-	if len(pts) < 2 {
-		return ""
-	}
-	const W, H, L, R, T, B = 900.0, 260.0, 64.0, 12.0, 12.0, 28.0
-	maxV := 0.0
-	for _, p := range pts {
-		maxV = math.Max(maxV, math.Max(p.Value, p.Invested))
-	}
-	if maxV <= 0 {
-		return ""
-	}
-	maxV *= 1.05
-	x := func(i int) float64 { return L + (W-L-R)*float64(i)/float64(len(pts)-1) }
-	y := func(v float64) float64 { return T + (H-T-B)*(1-v/maxV) }
-	line := func(get func(ChartPt) float64) string {
-		var b strings.Builder
-		for i, p := range pts {
-			c := "L"
-			if i == 0 {
-				c = "M"
-			}
-			fmt.Fprintf(&b, "%s%.1f %.1f ", c, x(i), y(get(p)))
-		}
-		return b.String()
-	}
-	val := line(func(p ChartPt) float64 { return p.Value })
-	inv := line(func(p ChartPt) float64 { return p.Invested })
-	var s strings.Builder
-	fmt.Fprintf(&s, `<svg viewBox="0 0 %.0f %.0f" role="img" aria-label="Portfolio value versus net invested">`, W, H)
-	for i := 0; i <= 4; i++ {
-		v := maxV * float64(i) / 4
-		fmt.Fprintf(&s, `<line class="grid" x1="%.0f" x2="%.0f" y1="%.1f" y2="%.1f"/><text class="axis" x="%.0f" y="%.1f" text-anchor="end">$%s</text>`,
-			L, W-R, y(v), y(v), L-8, y(v)+4, template.HTMLEscapeString(shortMoney(v)))
-	}
-	fmt.Fprintf(&s, `<path class="area" d="%sL%.1f %.1f L%.1f %.1f Z"/>`, val, x(len(pts)-1), y(0), x(0), y(0))
-	fmt.Fprintf(&s, `<path class="inv" d="%s"/><path class="val" d="%s"/>`, inv, val)
-	fmt.Fprintf(&s, `<text class="axis" x="%.0f" y="%.0f">%s</text><text class="axis" x="%.0f" y="%.0f" text-anchor="end">%s</text>`,
-		L, H-8, pts[0].Date, W-R, H-8, pts[len(pts)-1].Date)
-	s.WriteString(`</svg>`)
-	return template.HTML(s.String())
-}
-
-func shortMoney(v float64) string {
-	switch {
-	case v >= 1e6:
-		return fmt.Sprintf("%.1fM", v/1e6)
-	case v >= 1e3:
-		return fmt.Sprintf("%.0fk", v/1e3)
-	}
-	return fmt.Sprintf("%.0f", v)
 }

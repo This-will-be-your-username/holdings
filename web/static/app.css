@@ -1,0 +1,137 @@
+/* Charts, outlook page and responsive layout. Loaded after style.css. */
+
+/* ===== charts ===== */
+:root{--violet:#8b5cf6}
+@media (prefers-color-scheme:dark){:root{--violet:#a78bfa}}
+.chart{position:relative;min-width:0}
+.ch{display:block;max-width:100%;height:auto;overflow:visible}
+.ch-line{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.ch-hist{stroke:var(--accent);stroke-width:2.2} .ch-hist.up{stroke:var(--pos)} .ch-hist.down{stroke:var(--neg)}
+.ch.mini .ch-hist{stroke-width:1.8}
+.ch-ma50{stroke:var(--warn);stroke-width:1.2;opacity:.85}
+.ch-ma200{stroke:var(--violet);stroke-width:1.2;opacity:.9}
+.ch-trend{stroke:var(--ink);stroke-width:1.4;stroke-dasharray:6 4;opacity:.65}
+.ch-inv{stroke:var(--muted);stroke-width:1.6;stroke-dasharray:5 4}
+.ch-med{stroke:var(--accent);stroke-width:2.2;stroke-dasharray:1 5}
+.ch-band1{fill:color-mix(in srgb,var(--accent) 12%,transparent)}
+.ch-band2{fill:color-mix(in srgb,var(--accent) 22%,transparent)}
+.ch-grid{stroke:var(--line);stroke-width:1}
+.ch-axis{fill:var(--muted);font-size:11.5px}
+.ch-now{stroke:var(--muted);stroke-dasharray:3 3;opacity:.7}
+.ch-cross{stroke:var(--muted);stroke-width:1;pointer-events:none}
+.ch-tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12.5px;box-shadow:0 6px 18px rgba(0,0,0,.2);z-index:3;min-width:150px;max-width:280px}
+.ch-tip b{display:block;margin-bottom:4px}
+.ch-tip div{display:flex;justify-content:space-between;gap:14px;line-height:1.5}
+.ch-tip span{color:var(--muted)} .ch-tip em{font-style:normal;font-weight:600;white-space:nowrap}
+.ch-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:8px}
+.sw{display:inline-block;width:16px;height:0;border-top:2px solid var(--muted);margin-right:6px;vertical-align:middle}
+.sw-hist{border-color:var(--accent);border-top-width:3px}
+.sw-ma50{border-color:var(--warn)} .sw-ma200{border-color:var(--violet)}
+.sw-trend{border-color:var(--ink);border-top-style:dashed} .sw-inv{border-color:var(--muted);border-top-style:dashed}
+.sw-med{border-color:var(--accent);border-top-style:dotted;border-top-width:3px}
+.sw-band1,.sw-band2{height:10px;border:0;border-radius:3px}
+.sw-band1{background:color-mix(in srgb,var(--accent) 18%,transparent)} .sw-band2{background:color-mix(in srgb,var(--accent) 38%,transparent)}
+
+/* ===== outlook ===== */
+.scen{display:flex;gap:10px;align-items:end} .scen select{min-width:220px}
+.scen-desc{margin:-6px 0 16px}
+.mini-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.mini-stats>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mini-stats b{font-size:17px;letter-spacing:-.01em} .sub{color:var(--muted);font-size:12.5px}
+.detail{margin:0 0 14px;color:var(--muted)}
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mcard{border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0;display:flex;flex-direction:column;gap:4px}
+.mtop{display:flex;justify-content:space-between;gap:8px;align-items:start}
+.mtop b{font-size:13.5px}
+.mval{font-size:22px;font-weight:650;letter-spacing:-.02em}
+.mini-chart{margin:2px 0}
+.mrets{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.sect{margin:24px 0 12px;font-size:18px}
+.agrid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:start}
+.agrid .card{margin:0}
+.aname{font-size:17px;margin:0}
+.outcome{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 4px}
+.outcome>div{display:flex;flex-direction:column;min-width:0} .outcome b{font-size:15px}
+dl.facts{margin:10px 0 0;display:grid;gap:0}
+dl.facts>div{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
+dl.facts dt{color:var(--muted)} dl.facts dd{margin:0;text-align:right}
+.tag.pos,.tag.tr-Uptrend{background:color-mix(in srgb,var(--pos) 14%,transparent);color:var(--pos);border-color:transparent}
+.tag.neg,.tag.tr-Downtrend{background:color-mix(in srgb,var(--neg) 14%,transparent);color:var(--neg);border-color:transparent}
+.tag.tr-Pullback,.tag.tr-Recovering,.tag.neutral{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);border-color:transparent}
+.hero .chart{margin-top:4px}
+.card{min-width:0}
+
+/* ===== desktop polish ===== */
+@media (min-width:1100px){.wrap{max-width:1240px} h1{font-size:26px}}
+
+/* ===== tablet ===== */
+@media (max-width:980px){
+  .mgrid{grid-template-columns:repeat(2,1fr)}
+  .agrid{grid-template-columns:1fr}
+  .mini-stats{grid-template-columns:repeat(3,1fr)}
+}
+
+/* ===== phones ===== */
+@media (max-width:720px){
+  body{font-size:15px;-webkit-tap-highlight-color:transparent}
+  .wrap{padding:0 14px}
+  main{padding-top:16px}
+  .top{position:static}
+  .bar{height:auto;flex-direction:column;align-items:stretch;gap:0;padding-top:10px}
+  nav{flex-wrap:nowrap;overflow-x:auto;gap:2px;margin:0 -14px;padding:2px 14px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  nav::-webkit-scrollbar{display:none}
+  nav a{white-space:nowrap;padding:9px 13px;flex:none}
+  h1{font-size:22px}
+  .head{align-items:stretch;margin-bottom:14px}
+  .head .actions{width:100%} .head .actions>*{flex:1} .head .actions .btn{width:100%;text-align:center}
+  .scen{width:100%} .scen label{width:100%} .scen select{width:100%;min-width:0}
+  .card{padding:14px;border-radius:12px;margin-bottom:12px}
+  .card-h{margin-bottom:10px}
+  .stats{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat .big{font-size:20px} .lbl{font-size:12px} .sub{font-size:12px}
+  .mini-stats{grid-template-columns:repeat(2,1fr)}
+  .mini-stats>div:last-child{grid-column:1/-1}
+  .mgrid{grid-template-columns:1fr 1fr;gap:10px}
+  .mval{font-size:19px}
+  .outcome{grid-template-columns:1fr 1fr 1fr;gap:6px} .outcome b{font-size:14px}
+  /* bigger touch targets; 16px inputs stop iOS zooming on focus */
+  input,select,textarea{font-size:16px;padding:11px 12px}
+  .btn{padding:11px 16px;min-height:44px}
+  .x{padding:10px 12px;font-size:16px}
+  form.grid,form.grid .inner{grid-template-columns:1fr}
+  .sale-row{grid-template-columns:1fr 1fr;gap:10px}
+  .sale-row label:first-child{grid-column:1/-1}
+  .sale-row .x{grid-column:2;justify-self:end}
+  .est-actions{flex-direction:column;align-items:stretch}
+  .est-actions label.inl{flex-direction:column;align-items:stretch;gap:5px}
+  .est-actions label.inl input,.est-actions label.inl select{width:100%}
+  form.inline{flex-direction:column;align-items:stretch} form.inline input{max-width:none;width:100%}
+  .flash{font-size:14px}
+  dl.facts>div{flex-direction:column;gap:2px} dl.facts dd{text-align:left}
+  /* tables become stacked cards (cells are labelled by charts.js) */
+  .scroll{margin:0;padding:0;overflow:visible}
+  table.stack{display:block} table.stack thead{display:none} table.stack tbody{display:block}
+  table.stack tr{display:block;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--card)}
+  table.stack tr.note-row{border:0;padding:0}
+  table.stack tbody tr:hover{background:var(--card)}
+  table.stack td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border:0;padding:5px 0;text-align:right;white-space:normal}
+  table.stack td::before{content:attr(data-label);color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex:none}
+  table.stack td:first-child{display:block;text-align:left;border-bottom:1px solid var(--line);padding:0 0 8px;margin-bottom:4px}
+  table.stack td:first-child::before{display:none}
+  table.stack td.r{white-space:normal}
+  table.stack td:not([data-label])::before,table.stack td[data-label=""]::before{display:none}
+  table.stack td:empty{display:none}
+  .foot{padding-bottom:32px}
+}
+@media (max-width:340px){
+  .stats{grid-template-columns:1fr}
+  .mgrid{grid-template-columns:1fr}
+  .mini-stats{grid-template-columns:1fr} .mini-stats>div:last-child{grid-column:auto}
+}
+@supports (padding:max(0px)){
+  @media (max-width:720px){.wrap{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}}
+}
+
+/* wrapped table-cell content (added by charts.js) */
+td>.v{display:block}
+@media (max-width:720px){table.stack td>.v{text-align:right;min-width:0}}

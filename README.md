@@ -41,3 +41,20 @@ gains/losses, carried-forward losses, franking offsets and your other income are
 - Shows parcels sold, net proceeds, extra tax and after-tax proceeds, plus before/after for the year.
 - Flags when waiting past the 12-month mark would cut the tax (assuming an unchanged price).
 Shareable via the URL query string. Estimates only, not tax advice.
+
+## Outlook (`/outlook`) — six-month projection
+Interactive charts (hover or touch for values) of where your portfolio and each holding could be in ~6 months.
+This is a **statistical projection, not a prediction**: it shows ranges (50% / 80%) with probabilities.
+- **Past behaviour:** up to 5 years of daily history; each holding's own daily moves are bootstrapped (the same
+  days across holdings, preserving correlation) around an assumed drift into thousands of possible paths.
+- **Assumptions** (selector on the page): *Balanced* (avg of last-year growth, full-history growth and 6% long-run,
+  capped, plus a ±1.5%/yr tilt when the market is clearly above/below its 200-day average), *Recent trend*,
+  *Long-run*, *No growth*. Volatility is scaled by how choppy the last 60 days were vs the long run.
+- **Wider market:** S&P/ASX 200, S&P 500, VIX and AUD/USD (Yahoo) with trend (50/200-day averages), returns,
+  volatility, drawdown; per-holding beta/correlation vs the relevant index, 1-year regression trend line.
+- Price-only (distributions not included); managed funds need ~120 manual unit prices to be modelled.
+
+## Mobile & desktop
+Responsive layout: scrollable nav, charts redrawn at the real screen width, tables collapse into labelled cards on
+phones, 16px inputs and 44px touch targets, gzip for small payloads. Static assets are embedded in the binary —
+rebuild after changing anything under `web/`.

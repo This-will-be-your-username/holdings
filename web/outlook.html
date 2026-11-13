@@ -1,0 +1,97 @@
+{{define "content"}}
+<div class="head">
+  <div><h1>Outlook</h1>
+    <p class="muted">Where your investments could plausibly be in six months — projected from their own past behaviour and today's market conditions.</p></div>
+  <form method="get" action="/outlook" class="scen">
+    <label>Assumption
+      <select name="scenario" onchange="this.form.submit()">
+        {{range .Scenarios}}<option value="{{.Key}}" {{sel .Key $.O.Scenario}}>{{.Label}}</option>{{end}}
+      </select></label>
+  </form>
+</div>
+
+<div class="flash warnnote"><b>A projection, not a prediction.</b> Markets are uncertain and past performance doesn't guarantee future results. The shaded bands show a <em>range of outcomes</em> — real results can land outside them. Not financial advice.</div>
+<p class="muted s scen-desc"><b>{{.O.ScenarioLabel}}:</b> {{.O.ScenarioDesc}}.</p>
+
+{{if .Empty}}
+<div class="card empty"><h2>No open holdings</h2><p>Add some transactions and refresh prices — the outlook needs price history for what you hold.</p><a class="btn primary" href="/transactions#add">Add a transaction</a></div>
+{{else}}
+
+{{with .O.Portfolio}}
+<section class="card hero">
+  <div class="card-h"><h2>Your portfolio to {{.EndDate}}</h2></div>
+  <div class="chart" data-chart="portfolio"></div>
+  <div class="mini-stats">
+    <div><span class="lbl">Today</span><b>${{money0 .Start}}</b></div>
+    <div><span class="lbl">Middle outcome</span><b>${{money0 .Median}}</b><span class="sub {{cls (sub .Median .Start)}}">{{pct (pcg .Median .Start)}}</span></div>
+    <div><span class="lbl">Likely range (80%)</span><b>${{money0 .P10}} – ${{money0 .P90}}</b><span class="sub">{{pct (pcg .P10 .Start)}} to {{pct (pcg .P90 .Start)}}</span></div>
+    <div><span class="lbl">Chance it's higher</span><b>{{printf "%.0f" .ProbUp}}%</b><span class="sub">{{printf "%.0f" .ProbUp10}}% chance of +10% or more</span></div>
+    <div><span class="lbl">Chance of a 10%+ fall</span><b>{{printf "%.0f" .ProbDown10}}%</b><span class="sub">price moves only</span></div>
+  </div>
+  {{if .Flat}}<p class="muted s">Held flat (not enough price history to model): {{range $i, $s := .Flat}}{{if $i}}, {{end}}{{short $s}}{{end}} — ${{money0 .FlatValue}}.</p>{{end}}
+</section>
+{{else}}
+<div class="card warnbox"><h2>Portfolio projection unavailable</h2><p class="muted">None of your holdings has enough price history yet. Click <b>Refresh prices</b> on the dashboard to load up to five years of history, or add more unit prices for managed funds.</p></div>
+{{end}}
+
+<section class="card">
+  <div class="card-h"><h2>The wider market</h2><span class="tag {{.O.Tone}}">{{.O.Headline}}</span></div>
+  <p class="detail">{{.O.Detail}}</p>
+  <div class="mgrid">
+    {{range .O.Market}}
+    <div class="mcard">
+      <div class="mtop"><b>{{.Name}}</b><span class="tag tr-{{.Trend}}">{{if .Level}}{{.Level}}{{else}}{{.Trend}}{{end}}</span></div>
+      <div class="mval">{{if eq .Sym "AUDUSD=X"}}{{printf "%.4f" .Last}}{{else}}{{f2 .Last}}{{end}}</div>
+      <div class="chart mini-chart" data-chart="m:{{.Sym}}"></div>
+      {{if ne .Sym "^VIX"}}
+      <div class="mrets"><span>1m <b class="{{cls .R1M}}">{{pctn .R1M}}</b></span><span>3m <b class="{{cls .R3M}}">{{pctn .R3M}}</b></span><span>12m <b class="{{cls .R12M}}">{{pctn .R12M}}</b></span></div>
+      <div class="muted s">{{pctn .Vs200}} vs 200-day · vol {{f1 .Vol30}}%</div>
+      {{else}}<div class="muted s">Below 15 calm · 15–25 normal · 25–35 elevated · 35+ stressed</div>{{end}}
+    </div>
+    {{end}}
+  </div>
+</section>
+
+<h2 class="sect">Your holdings</h2>
+<div class="agrid">
+{{range .O.Assets}}
+<section class="card acard">
+  <div class="card-h">
+    <div><h3 class="aname">{{short .Symbol}} <span class="tag">{{.Market}}</span></h3><div class="muted s">{{.Name}}</div></div>
+    <div class="r"><b>${{money0 .ValueNow}}</b>{{if .Enough}}<div><span class="tag tr-{{.Trend}}">{{.Trend}}</span></div>{{end}}</div>
+  </div>
+  {{if .Enough}}
+  <div class="chart" data-chart="{{.Symbol}}"></div>
+  <div class="outcome">
+    <div><span class="lbl">6-month middle</span><b>${{money0 .Median}}</b></div>
+    <div><span class="lbl">Likely range</span><b>${{money0 .P10}} – ${{money0 .P90}}</b></div>
+    <div><span class="lbl">Chance higher</span><b>{{printf "%.0f" .ProbUp}}%</b></div>
+  </div>
+  <dl class="facts">
+    <div><dt>Past 1m / 3m / 6m / 12m</dt><dd><span class="{{cls .R1M}}">{{pctn .R1M}}</span> · <span class="{{cls .R3M}}">{{pctn .R3M}}</span> · <span class="{{cls .R6M}}">{{pctn .R6M}}</span> · <span class="{{cls .R12M}}">{{pctn .R12M}}</span></dd></div>
+    {{if .BenchName}}<div><dt>12m vs {{.BenchName}}</dt><dd>{{pctn .BenchR12}} market</dd></div>{{end}}
+    <div><dt>Beta / correlation</dt><dd>{{f2 .Beta}} / {{f2 .Corr}}</dd></div>
+    <div><dt>Volatility (60d / long-run)</dt><dd>{{f1 .Vol60}}% / {{f1 .VolAll}}%</dd></div>
+    <div><dt>Below 52-week high</dt><dd class="{{cls .DD}}">{{pctn .DD}}</dd></div>
+    <div><dt>1-year trend line</dt><dd>{{pctn .SlopePA}} a year <span class="muted">(fit {{f2 .R2}})</span></dd></div>
+    <div><dt>Assumed growth</dt><dd>{{pctn .Mu}} a year{{if .Tilt}} <span class="muted">(market tilt {{pctn .Tilt}})</span>{{end}}</dd></div>
+  </dl>
+  {{else}}
+  <p class="muted">{{.Note}}</p>
+  {{end}}
+</section>
+{{end}}
+</div>
+
+<section class="card note">
+  <h2>How this works</h2>
+  <ul>
+    <li><b>Past behaviour:</b> for each holding the app resamples its own real daily price moves from up to 5 years of history (the same days for every holding, so they move together as they have before) to build thousands of possible six-month paths. The bands are the 50% and 80% ranges of those paths.</li>
+    <li><b>Growth assumption:</b> "Balanced" averages the last year's growth, the full-history growth and a 6% long-run assumption (each capped), then adds a small market-trend tilt (±1.5% a year) when the market is clearly above/below its 200-day average. Switch the assumption above to see how much the answer depends on it — it usually matters more than anything else.</li>
+    <li><b>Current conditions:</b> volatility is scaled up or down by how choppy the last 60 days have been compared with the long run. The market panel shows the ASX 200, S&amp;P 500, volatility (VIX) and the AUD/USD rate, which moves the AUD value of US holdings.</li>
+    <li><b>Trend line:</b> the dashed line is a straight-line fit of the last year of the holding's (log) price, extended forward — a summary of the recent direction, not a forecast. "Fit" near 1 means a steady trend; near 0 means choppy.</li>
+    <li><b>Not included:</b> distributions you'll receive, your future buying or selling, tax, news, and events outside history (crashes can exceed the bands). Managed funds need around 120 unit prices before they can be modelled. Prices are in AUD; US holdings include currency moves.</li>
+  </ul>
+</section>
+{{end}}
+{{end}}

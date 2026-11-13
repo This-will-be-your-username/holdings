@@ -2,9 +2,10 @@
 <html lang="en-AU">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FundTrack</title>
 <link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
 <header class="top">
@@ -15,6 +16,7 @@
       <a href="/transactions" class="{{if eq .Active "transactions"}}on{{end}}">Transactions</a>
       <a href="/distributions" class="{{if eq .Active "distributions"}}on{{end}}">Distributions</a>
       <a href="/tax" class="{{if eq .Active "tax"}}on{{end}}">Tax</a>
+      <a href="/outlook" class="{{if eq .Active "outlook"}}on{{end}}">Outlook</a>
       <a href="/estimator" class="{{if eq .Active "estimator"}}on{{end}}">Sell estimator</a>
       <a href="/prices" class="{{if eq .Active "prices"}}on{{end}}">Fund prices</a>
     </nav>
@@ -25,6 +27,8 @@
   {{if .Err}}<div class="flash bad">{{.Err}}</div>{{end}}
   {{template "content" .}}
 </main>
+{{if .Charts}}<script>window.__CHARTS__={{.Charts}};</script>{{end}}
+<script src="/static/charts.js" defer></script>
 <footer class="wrap foot">Prices: Yahoo Finance (unofficial) · FX: ECB via Frankfurter · Not financial advice. Figures are for your records, not tax advice.</footer>
 </body>
 </html>{{end}}

@@ -26,11 +26,10 @@
 </section>
 {{end}}
 
-{{if .Chart}}
+{{if .HasChart}}
 <section class="card">
-  <div class="card-h"><h2>Value vs net invested</h2>
-    <span class="legend"><i class="dot val"></i>Market value <i class="dot inv"></i>Net invested</span></div>
-  <div class="chart">{{.Chart}}</div>
+  <div class="card-h"><h2>Value vs net invested</h2><a class="link" href="/outlook">6-month outlook →</a></div>
+  <div class="chart" data-chart="value"></div>
 </section>
 {{end}}
 
