@@ -559,10 +559,14 @@ func ComputeOutlook(db *DB, res *Result, scenario string, now time.Time) *Outloo
 
 		m := map[string]float64{}
 		for d, v := range db.Prices[h.Symbol] {
-			m[d] = v
+			if v > 0 { // a zero or negative price can only be a data error; it would poison every log-return
+				m[d] = v
+			}
 		}
 		for d, v := range db.Manual[h.Symbol] {
-			m[d] = v
+			if v > 0 {
+				m[d] = v
+			}
 		}
 		ser := newSeries(m)
 		if inst.Currency != "AUD" && inst.Currency != "" {
@@ -595,7 +599,7 @@ func ComputeOutlook(db *DB, res *Result, scenario string, now time.Time) *Outloo
 		a.Enough = true
 		last, lastDate, _ := ser.Last()
 		a.R1M, a.R3M, a.R6M, a.R12M = pctChange(ser, lastDate, 30), pctChange(ser, lastDate, 91), pctChange(ser, lastDate, 182), pctChange(ser, lastDate, 365)
-		rets := logRets(ser.V)
+		rets := dailyRets(ser)
 		_, sdAll := meanStd(rets)
 		_, sd60 := meanStd(lastN(rets, 60))
 		a.VolAll, a.Vol60 = sdAll*math.Sqrt(252)*100, sd60*math.Sqrt(252)*100
@@ -748,7 +752,7 @@ func ComputeOutlook(db *DB, res *Result, scenario string, now time.Time) *Outloo
 						idx[d] = m.ser.V[j]
 					}
 					for j := 1; j < len(common); j++ {
-						rets[i] = append(rets[i], math.Log(idx[common[j]]/idx[common[j-1]]))
+						rets[i] = append(rets[i], math.Log(idx[common[j]]/idx[common[j-1]])/math.Sqrt(float64(bizGap(common[j-1], common[j]))))
 					}
 				}
 				break
@@ -806,3 +810,35 @@ func maxInt(a, b int) int {
 
 // rnd trims chart values to 4 decimals to keep the embedded JSON small.
 func rnd(v float64) float64 { return math.Round(v*1e4) / 1e4 }
+
+// bizGap is the number of weekdays after d0 up to and including d1 (at least 1).
+func bizGap(d0, d1 string) int {
+	a, e1 := time.Parse(dateFmt, d0)
+	b, e2 := time.Parse(dateFmt, d1)
+	if e1 != nil || e2 != nil || !b.After(a) {
+		return 1
+	}
+	n := 0
+	for d := a.AddDate(0, 0, 1); !d.After(b); d = d.AddDate(0, 0, 1) {
+		if wd := d.Weekday(); wd != time.Saturday && wd != time.Sunday {
+			n++
+		}
+	}
+	if n < 1 {
+		n = 1 // e.g. Friday to the following Sunday
+	}
+	return n
+}
+
+// dailyRets are log returns scaled to one business day. A price series that only has weekly
+// (or irregular) points - a managed fund's unit prices - would otherwise look about √5 times
+// more volatile than it is, because a 5-day move would be treated as a 1-day move.
+func dailyRets(s *Series) []float64 {
+	var out []float64
+	for i := 1; i < len(s.V); i++ {
+		if s.V[i] > 0 && s.V[i-1] > 0 {
+			out = append(out, math.Log(s.V[i]/s.V[i-1])/math.Sqrt(float64(bizGap(s.D[i-1], s.D[i]))))
+		}
+	}
+	return out
+}

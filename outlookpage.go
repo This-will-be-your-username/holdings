@@ -37,7 +37,7 @@ func portfolioChart(pts []ChartPt) *ChartCfg {
 func (a *App) outlookPage(w http.ResponseWriter, r *http.Request) {
 	var res *Result
 	var o *Outlook
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		now := time.Now()
 		res = Compute(db, now)
 		o = ComputeOutlook(db, res, r.URL.Query().Get("scenario"), now)

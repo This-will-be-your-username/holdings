@@ -269,7 +269,7 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	}
 	var res *Result
 	var set Settings
-	a.store.View(func(db *DB) { res = Compute(db, time.Now()); set = db.Settings })
+	a.st().View(func(db *DB) { res = Compute(db, time.Now()); set = db.Settings })
 
 	date := strings.TrimSpace(r.FormValue("date"))
 	if date == "" {
@@ -314,7 +314,7 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("run") != "" {
 		var est *Estimate
 		var err error
-		a.store.View(func(db *DB) { est, err = EstimateSale(db, reqs, date, method, time.Now()) })
+		a.st().View(func(db *DB) { est, err = EstimateSale(db, reqs, date, method, time.Now()) })
 		if err != nil {
 			data["Err"] = err.Error()
 		} else {

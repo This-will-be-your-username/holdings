@@ -187,7 +187,7 @@ func (a *App) renderReview(w http.ResponseWriter, r *http.Request, sess *importS
 	}
 	var sum importSummary
 	var prev *ImportRec
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		sum = classifyRows(an, db.Txns)
 		for i := range db.Imports {
 			if db.Imports[i].Hash == sess.Hash {
@@ -259,7 +259,7 @@ func (a *App) importCommit(w http.ResponseWriter, r *http.Request) {
 
 	// work out what would be imported, and which listed instruments are new (network lookups happen outside the lock)
 	need := map[string]*ParsedRow{}
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		classifyRows(an, db.Txns)
 		for i := range an.Rows {
 			p := &an.Rows[i]
@@ -281,7 +281,7 @@ func (a *App) importCommit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var rec ImportRec
-	err = a.store.Update(func(db *DB) error {
+	err = a.st().Update(func(db *DB) error {
 		sum := classifyRows(an, db.Txns) // re-check under the lock
 		rec = ImportRec{ID: newID(), At: time.Now().Format(time.RFC3339), File: sess.File, Hash: sess.Hash,
 			Rows: len(an.Rows), Dupes: sum.Dup, Skipped: sum.Skipped + sum.Errors}
@@ -358,7 +358,7 @@ func plural(n int) string {
 func (a *App) importUndo(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	removed := 0
-	a.store.Update(func(db *DB) error {
+	a.st().Update(func(db *DB) error {
 		kept := db.Txns[:0]
 		for _, t := range db.Txns {
 			if t.Import == id {

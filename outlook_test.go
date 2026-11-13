@@ -243,3 +243,26 @@ func TestOutlookNoHistory(t *testing.T) {
 		t.Error("headline should explain missing market data")
 	}
 }
+
+func TestSparsePricesDoNotInflateVolatility(t *testing.T) {
+	// the same underlying random walk observed daily and only every 5th business day
+	daily := genPrices(600, 100, 0.0002, 0.01, 11, time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC))
+	ds := newSeries(daily)
+	weekly := map[string]float64{}
+	for i := 0; i < len(ds.D); i += 5 {
+		weekly[ds.D[i]] = ds.V[i]
+	}
+	_, sdDaily := meanStd(dailyRets(ds))
+	_, sdWeekly := meanStd(dailyRets(newSeries(weekly)))
+	if math.Abs(sdWeekly/sdDaily-1) > 0.15 {
+		t.Errorf("daily vol %v vs weekly-observed %v should be about equal", sdDaily, sdWeekly)
+	}
+	// unadjusted, the weekly series looks ~sqrt(5) as volatile
+	_, raw := meanStd(logRets(newSeries(weekly).V))
+	if raw/sdDaily < 1.9 {
+		t.Errorf("sanity: raw weekly vol ratio %v", raw/sdDaily)
+	}
+	if bizGap("2026-11-13", "2026-11-16") != 1 || bizGap("2026-11-09", "2026-11-13") != 4 || bizGap("2026-11-13", "2026-11-13") != 1 {
+		t.Error("bizGap")
+	}
+}

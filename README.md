@@ -90,3 +90,23 @@ number). On upload each row is classified:
 - **new**.
 The same trade arriving from two different brokers' formats is recognised, an identical file re-upload is
 flagged, the app's own export re-imports as 100% already recorded, and each import can be **undone**.
+
+## Test mode (dummy data)
+A **Test data** switch in the page header flips the whole app onto a separate, persistent set of simulated
+investments built around **VGS, VDHG, VDGR and the unlisted VAN0110AU fund**. It is stored in its own file
+(`data/fundtrack-test.json`) next to your real data, so edits persist across restarts like real data, and your
+real records are never opened for writing while it is on. The choice is remembered (`data/mode`).
+
+    TEST_MODE=1 go run .      # start in test mode   (TEST_MODE=0 forces real data)
+
+What's in it (about 130 transactions over ~3 years, deterministic apart from dates moving with "today"):
+- lump-sum and monthly/quarterly buys with brokerage; contract-note references on the first year (marked as a
+  sample import so it can be undone);
+- quarterly distributions with franking credits, foreign-tax offsets, discountable capital gain and tax-deferred
+  amounts, VDHG reinvested (DRP), June-quarter payments assigned to the earlier income year;
+- sells covering every CGT case: a discounted gain, a full-rate gain on a young parcel, and a capital loss;
+- 5 years of daily prices driven by shared market factors (so betas/correlations make sense), market benchmarks,
+  weekly unit prices for the managed fund, and the latest distribution left unrecorded so the "may be missing"
+  suggestions appear. Price refresh is disabled (nothing is fetched in test mode).
+The banner offers **Reset test data** (regenerate), a **sample broker CSV** and a **sample fund statement**, built from
+the test data so you can try the importer's duplicate handling (already recorded / possible duplicate / new / skipped).

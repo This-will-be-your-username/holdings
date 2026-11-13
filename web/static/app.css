@@ -168,3 +168,22 @@ td.why{max-width:340px;color:var(--muted);white-space:normal}
 @media (max-width:720px){.raise-grid{grid-template-columns:1fr} td.why{max-width:none} fieldset.holds{flex-direction:column}}
 details.more-cols{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
 details.more-cols summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+
+/* ===== test mode ===== */
+.brandrow{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.modesw{margin:0}
+.swbtn{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px 4px 5px;cursor:pointer}
+.swbtn .knob{width:30px;height:18px;border-radius:99px;background:var(--line);position:relative;transition:background .15s}
+.swbtn .knob::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.swbtn.on{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,var(--line))}
+.swbtn.on .knob{background:var(--warn)}
+.swbtn.on .knob::after{transform:translateX(12px)}
+.testbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;background:var(--warnbg);color:var(--warn);border:1px dashed color-mix(in srgb,var(--warn) 55%,var(--line));border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13.5px}
+.testbar b{letter-spacing:.06em}
+.testacts{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;margin-left:auto}
+.testacts a,.linkbtn{color:var(--accent);font:inherit;font-size:13.5px;font-weight:600;text-decoration:none;background:none;border:0;padding:0;cursor:pointer}
+.testacts a:hover,.linkbtn:hover{text-decoration:underline}
+.testacts form{margin:0}
+@media (min-width:721px){.bar{gap:24px} .brandrow{flex:none}}
+@media (max-width:720px){.brandrow{padding-bottom:4px} .testacts{margin-left:0;width:100%}}
+body.is-test .top{border-bottom:2px solid var(--warn)}

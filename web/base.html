@@ -7,10 +7,16 @@
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
+<body class="{{if .Test}}is-test{{end}}">
 <header class="top">
   <div class="wrap bar">
-    <a class="brand" href="/"><span class="logo">▲</span> FundTrack</a>
+    <div class="brandrow">
+      <a class="brand" href="/"><span class="logo">▲</span> FundTrack</a>
+      <form method="post" action="/mode" class="modesw" title="Switch between your real data and simulated test data">
+        <input type="hidden" name="mode" value="{{if .Test}}real{{else}}test{{end}}">
+        <button class="swbtn{{if .Test}} on{{end}}" role="switch" aria-checked="{{if .Test}}true{{else}}false{{end}}"><span class="knob"></span><span class="swlbl">Test data</span></button>
+      </form>
+    </div>
     <nav>
       <a href="/" class="{{if eq .Active "dashboard"}}on{{end}}">Dashboard</a>
       <a href="/transactions" class="{{if eq .Active "transactions"}}on{{end}}">Transactions</a>
@@ -23,6 +29,14 @@
   </div>
 </header>
 <main class="wrap">
+  {{if .Test}}<div class="testbar" role="status">
+    <b>TEST MODE</b> — simulated VGS, VDHG, VDGR and VAN0110AU data. Your real records are untouched and prices are not fetched.
+    <span class="testacts">
+      <a href="/test/sample.csv">Sample broker CSV</a>
+      <a href="/test/sample.csv?kind=statement">Sample fund statement</a>
+      <form method="post" action="/test/reset" onsubmit="return confirm('Regenerate the test data? Any changes you made to it will be lost.')"><button class="linkbtn">Reset test data</button></form>
+    </span>
+  </div>{{end}}
   {{if .Msg}}<div class="flash ok">{{.Msg}}</div>{{end}}
   {{if .Err}}<div class="flash bad">{{.Err}}</div>{{end}}
   {{template "content" .}}

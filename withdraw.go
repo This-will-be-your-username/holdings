@@ -413,7 +413,7 @@ type holdOpt struct {
 func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	var res *Result
-	a.store.View(func(db *DB) { res = Compute(db, now) })
+	a.st().View(func(db *DB) { res = Compute(db, now) })
 
 	date := strings.TrimSpace(r.FormValue("date"))
 	if d, err := parseDate(date); err == nil {
@@ -452,7 +452,7 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 		}
 		var wr *WithdrawResult
 		var err error
-		a.store.View(func(db *DB) { wr, err = WithdrawalPlans(db, o, now) })
+		a.st().View(func(db *DB) { wr, err = WithdrawalPlans(db, o, now) })
 		if err != nil {
 			data["Err"] = err.Error()
 		} else {

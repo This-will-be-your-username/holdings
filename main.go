@@ -21,19 +21,18 @@ import (
 var webFS embed.FS
 
 type App struct {
-	store     *Store
 	pages     map[string]*template.Template
 	refreshMu sync.Mutex
+	modes     // real vs test data stores (see testmode.go)
 }
 
 func main() {
 	addr := env("ADDR", "127.0.0.1:8080")
 	dataFile := env("DATA_FILE", "data/fundtrack.json")
-	store, err := OpenStore(dataFile)
-	if err != nil {
+	a := &App{pages: map[string]*template.Template{}}
+	if err := a.initModes(dataFile); err != nil {
 		log.Fatal(err)
 	}
-	a := &App{store: store, pages: map[string]*template.Template{}}
 	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import"} {
 		a.pages[p] = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/base.html", "web/"+p+".html"))
 	}
@@ -52,6 +51,7 @@ func main() {
 	mux.HandleFunc("POST /transactions", a.addTxn)
 	mux.HandleFunc("POST /transactions/delete", a.deleteTxn)
 	a.registerImport(mux)
+	a.registerTestMode(mux)
 	mux.HandleFunc("GET /prices", a.pricesPage)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
@@ -112,6 +112,7 @@ func redirect(w http.ResponseWriter, r *http.Request, path, msg, errMsg string) 
 
 func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data map[string]any) {
 	data["Active"] = page
+	data["Test"] = a.inTest()
 	if _, ok := data["Msg"]; !ok {
 		data["Msg"] = r.URL.Query().Get("msg")
 	}
@@ -125,7 +126,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data m
 }
 
 func (a *App) compute() (res *Result, last string) {
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		res = Compute(db, time.Now())
 		last = db.LastRefresh
 	})
@@ -151,7 +152,7 @@ func (a *App) txnPage(w http.ResponseWriter, r *http.Request, form map[string]st
 		rows[len(rows)-1-i] = x
 	}
 	var imps []ImportRec
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		for i := len(db.Imports) - 1; i >= 0 && len(imps) < 6; i-- { // newest first
 			imps = append(imps, db.Imports[i])
 		}
@@ -198,7 +199,7 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var have bool
-	a.store.View(func(db *DB) { have = db.Instruments[sym] != nil })
+	a.st().View(func(db *DB) { have = db.Instruments[sym] != nil })
 	var inst *Instrument
 	if !have {
 		if inst, err = resolveInstrument(sym, market, form["name"]); err != nil {
@@ -206,7 +207,7 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	a.store.Update(func(db *DB) error {
+	a.st().Update(func(db *DB) error {
 		if inst != nil && db.Instruments[sym] == nil {
 			db.Instruments[sym] = inst
 		}
@@ -222,7 +223,7 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) deleteTxn(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
-	a.store.Update(func(db *DB) error {
+	a.st().Update(func(db *DB) error {
 		for i, t := range db.Txns {
 			if t.ID == id {
 				db.Txns = append(db.Txns[:i], db.Txns[i+1:]...)
@@ -240,7 +241,7 @@ func (a *App) pricesPage(w http.ResponseWriter, r *http.Request) {
 		Prices       []ChartPt // Date/Value reused
 	}
 	var funds []fund
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		for _, inst := range db.Instruments {
 			if inst.Market != MarketManaged {
 				continue
@@ -284,7 +285,7 @@ func (a *App) addPrices(w http.ResponseWriter, r *http.Request) {
 		}
 		prices[d] = p
 	}
-	err := a.store.Update(func(db *DB) error {
+	err := a.st().Update(func(db *DB) error {
 		inst := db.Instruments[sym]
 		if inst == nil || inst.Market != MarketManaged {
 			return fmt.Errorf("unknown managed fund %q", sym)

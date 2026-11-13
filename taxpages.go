@@ -45,7 +45,7 @@ func (a *App) computeTax() (*Result, *TaxResult, Settings) {
 	var res *Result
 	var tr *TaxResult
 	var set Settings
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		now := time.Now()
 		res = Compute(db, now)
 		tr = ComputeTax(db, res.Rows, now)
@@ -109,7 +109,7 @@ func (a *App) saveSettings(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/tax", "", "income and losses can't be negative")
 		return
 	}
-	a.store.Update(func(db *DB) error {
+	a.st().Update(func(db *DB) error {
 		db.Settings = Settings{
 			OtherIncome: other, CGTMethod: m, OpeningLoss: loss,
 			ExcludeFranking: r.FormValue("include_franking") == "",
@@ -170,6 +170,6 @@ func (a *App) distributionsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) excludeFranking() (ex bool) {
-	a.store.View(func(db *DB) { ex = db.Settings.ExcludeFranking })
+	a.st().View(func(db *DB) { ex = db.Settings.ExcludeFranking })
 	return
 }

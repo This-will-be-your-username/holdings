@@ -204,6 +204,9 @@ func fetchFX(ccy string, from, to time.Time) (map[string]float64, error) {
 func (a *App) Refresh() (string, error) {
 	a.refreshMu.Lock()
 	defer a.refreshMu.Unlock()
+	if a.inTest() { // simulated data: fetching real prices would make the test transactions inconsistent
+		return "Test mode: prices are simulated, nothing was fetched", nil
+	}
 
 	type job struct {
 		sym  string
@@ -212,7 +215,7 @@ func (a *App) Refresh() (string, error) {
 	var jobs []job
 	fxFrom := map[string]time.Time{}
 	fxHave := map[string][2]string{} // ccy -> first,last stored date
-	a.store.View(func(db *DB) {
+	a.st().View(func(db *DB) {
 		earliest := map[string]string{}
 		for _, t := range db.Txns {
 			if e, ok := earliest[t.Symbol]; !ok || t.Date < e {
@@ -295,7 +298,7 @@ func (a *App) Refresh() (string, error) {
 		}
 	}
 
-	err := a.store.Update(func(db *DB) error {
+	err := a.st().Update(func(db *DB) error {
 		for sym, q := range quotes {
 			if db.Prices[sym] == nil {
 				db.Prices[sym] = map[string]float64{}
