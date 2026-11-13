@@ -1,0 +1,91 @@
+{{define "content"}}
+<div class="head">
+  <div>
+    <h1>Your portfolio</h1>
+    <p class="muted">Personal performance from your own transactions · prices refreshed {{.Last}}</p>
+  </div>
+  <div class="actions">
+    <form method="post" action="/refresh"><input type="hidden" name="back" value="/"><button class="btn">↻ Refresh prices</button></form>
+    <a class="btn primary" href="/export/transactions.csv">⬇ Export transactions CSV</a>
+  </div>
+</div>
+
+{{if .Empty}}
+<div class="card empty">
+  <h2>No transactions yet</h2>
+  <p>Add your buys, sells and distributions and FundTrack will work out <em>your</em> returns — based on when <em>you</em> invested, not the fund's headline numbers.</p>
+  <a class="btn primary" href="/transactions">Add your first transaction</a>
+</div>
+{{else}}
+{{with .R.Total}}
+<section class="stats">
+  <div class="card stat"><span class="lbl">Market value</span><span class="big">${{money .ValueAUD}}</span><span class="sub">cost basis ${{money .CostAUD}}</span></div>
+  <div class="card stat"><span class="lbl">Total return</span><span class="big {{cls .TotalReturn}}">{{signed .TotalReturn}}</span><span class="sub {{cls .ReturnPct}}">{{pct .ReturnPct}} on ${{money0 .Invested}} invested</span></div>
+  <div class="card stat"><span class="lbl">Your annual return (XIRR)</span><span class="big {{cls .XIRR}}">{{if .HasXIRR}}{{pct .XIRR}}{{else}}—{{end}}</span><span class="sub">money-weighted, p.a.</span></div>
+  <div class="card stat"><span class="lbl">Income received</span><span class="big">${{money .Income}}</span><span class="sub">{{if .Franking}}+ ${{money .Franking}} franking credits · {{end}}realised {{signed .Realised}} · unrealised {{signed .Unrealised}}</span></div>
+</section>
+{{end}}
+
+{{if .Chart}}
+<section class="card">
+  <div class="card-h"><h2>Value vs net invested</h2>
+    <span class="legend"><i class="dot val"></i>Market value <i class="dot inv"></i>Net invested</span></div>
+  <div class="chart">{{.Chart}}</div>
+</section>
+{{end}}
+
+<section class="card">
+  <div class="card-h"><h2>Holdings</h2><a class="link" href="/export/holdings.csv">Export holdings CSV</a></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Holding</th><th class="r">Units</th><th class="r">Avg cost</th><th class="r">Price</th><th class="r">Value (AUD)</th><th class="r">Unrealised</th><th class="r">Income</th><th class="r">Realised</th><th class="r">Return</th><th class="r">XIRR</th></tr></thead>
+    <tbody>
+    {{range .R.Holdings}}
+    <tr>
+      <td><b>{{short .Symbol}}</b> <span class="tag">{{.Market}}</span><div class="muted s">{{.Name}}{{if .PriceNote}} · <span class="warn" title="{{.PriceNote}}">⚠ {{.PriceNote}}</span>{{end}}</div></td>
+      <td class="r">{{units .Units}}</td>
+      <td class="r">{{money .AvgCost}}</td>
+      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}<div class="muted s">{{.PriceDate}}</div></td>
+      <td class="r"><b>{{money .ValueAUD}}</b><div class="muted s">{{printf "%.1f" .Weight}}%</div></td>
+      <td class="r {{cls .Unrealised}}">{{signed .Unrealised}}</td>
+      <td class="r">{{money .Income}}{{if .Franking}}<div class="muted s">+{{money .Franking}} franking</div>{{end}}</td>
+      <td class="r {{cls .Realised}}">{{signed .Realised}}</td>
+      <td class="r {{cls .ReturnPct}}"><b>{{pct .ReturnPct}}</b></td>
+      <td class="r {{cls .XIRR}}">{{if .HasXIRR}}{{pct .XIRR}}{{else}}—{{end}}</td>
+    </tr>
+    {{else}}<tr><td colspan="10" class="muted">No open positions.</td></tr>{{end}}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{{if .R.Closed}}
+<section class="card">
+  <div class="card-h"><h2>Closed positions</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Holding</th><th class="r">Invested</th><th class="r">Realised</th><th class="r">Income</th><th class="r">Return</th><th class="r">XIRR</th></tr></thead>
+    <tbody>{{range .R.Closed}}<tr>
+      <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
+      <td class="r">{{money .Invested}}</td>
+      <td class="r {{cls .Realised}}">{{signed .Realised}}</td>
+      <td class="r">{{money .Income}}</td>
+      <td class="r {{cls .ReturnPct}}">{{pct .ReturnPct}}</td>
+      <td class="r {{cls .XIRR}}">{{if .HasXIRR}}{{pct .XIRR}}{{else}}—{{end}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}
+
+{{if .R.Warnings}}
+<section class="card warnbox"><h2>Needs attention</h2><ul>{{range .R.Warnings}}<li>{{.}}</li>{{end}}</ul></section>
+{{end}}
+
+<section class="card note">
+  <h2>How these numbers are calculated</h2>
+  <ul>
+    <li><b>Cost basis</b> uses average cost (brokerage included). Foreign holdings are converted to AUD at the transaction-date rate.</li>
+    <li><b>Return</b> = unrealised + realised + income (+ franking credits, switchable on the <a class="link" href="/tax">Tax</a> page), divided by the money you put in. "Realised" here is average-cost; the <a class="link" href="/tax">Tax</a> page works out the taxable gain using actual parcels.</li>
+    <li><b>XIRR</b> is the annualised, money-weighted return of your actual cash flows (buys out, sells and distributions in, current value at the end) — so it reflects <em>your</em> timing, unlike a fund's published return. Shown once there's 30+ days of history.</li>
+  </ul>
+</section>
+{{end}}
+{{end}}

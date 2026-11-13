@@ -1,0 +1,64 @@
+{{define "content"}}
+<div class="head">
+  <div><h1>Distributions</h1>
+    <p class="muted">Income your investments have paid you, with franking credits and the tax components behind each payment.</p></div>
+  <div class="actions"><a class="btn primary" href="/export/tax-distributions.csv">⬇ Export distributions CSV</a></div>
+</div>
+
+{{if .Suggest}}
+<section class="card warnbox">
+  <h2>{{len .Suggest}} distribution{{if ne (len .Suggest) 1}}s{{end}} may be missing</h2>
+  <p class="muted s">Reported by Yahoo for units you held on the ex-date, with no matching record. Where the ASX publishes franking, credits are pre-filled. <a class="link" href="/transactions">Review and record them →</a></p>
+</section>
+{{end}}
+
+{{if .Yields}}
+<section class="card">
+  <div class="card-h"><h2>Trailing 12 months</h2><span class="muted s">cash + franking credits</span></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Holding</th><th class="r">Cash</th><th class="r">Franking</th><th class="r">Yield on cost</th><th class="r">Yield on value</th></tr></thead>
+    <tbody>{{range .Yields}}<tr>
+      <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
+      <td class="r">{{money .Cash}}</td><td class="r">{{money .Franking}}</td>
+      <td class="r"><b>{{printf "%.2f" .YieldCost}}%</b></td><td class="r">{{printf "%.2f" .YieldValue}}%</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  <p class="muted s">Yield on cost is the figure that reflects <em>your</em> return on what you paid — it differs from the fund's published yield.</p>
+</section>
+{{end}}
+
+{{if .Years}}
+<section class="card">
+  <div class="card-h"><h2>By income year</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Year</th><th class="r">Cash received</th><th class="r">Franked</th><th class="r">Franking credits</th><th class="r">Unfranked / other</th><th class="r">Capital gains</th><th class="r">Tax-deferred</th><th class="r">Foreign tax</th></tr></thead>
+    <tbody>{{range .Years}}<tr>
+      <td><b>{{.FY}}</b> <a class="link s" href="/tax?fy={{.FY}}">tax →</a></td>
+      <td class="r">{{money .CashReceived}}</td><td class="r">{{money .Franked}}</td>
+      <td class="r"><b>{{money .Franking}}</b></td><td class="r">{{money .Unfranked}}</td>
+      <td class="r">{{money (addf .DistCGDisc .DistCGOther)}}</td><td class="r">{{money .TaxDeferred}}</td><td class="r">{{money .ForeignTaxOffset}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>All distributions</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Date</th><th>Holding</th><th></th><th class="r">Gross</th><th class="r">Cash (AUD)</th><th class="r">Franked</th><th class="r">Credits</th><th class="r">Unfranked</th><th class="r">Cap. gain</th><th class="r">Tax-deferred</th></tr></thead>
+    <tbody>{{range .Lines}}<tr>
+      <td>{{.Date}}<div class="muted s">FY {{.FY}}</div></td>
+      <td><b>{{short .Symbol}}</b></td>
+      <td>{{if eq .Type "drp"}}<span class="pill drp">DRP</span>{{end}}{{if not .Detailed}} <span class="warn s" title="No tax breakdown entered: treated as unfranked income">⚠</span>{{end}}</td>
+      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Amount}}</td>
+      <td class="r">{{money .CashAUD}}</td><td class="r">{{money .Franked}}</td>
+      <td class="r"><b>{{money .Franking}}</b></td><td class="r">{{money .Unfranked}}</td>
+      <td class="r">{{money (addf .CGDisc .CGOther)}}</td><td class="r">{{money .TaxDeferred}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{else}}
+<div class="card empty"><h2>No distributions recorded</h2>
+<p>Record cash or reinvested distributions on the transactions page — add franking credits and the tax components to get an accurate tax estimate.</p>
+<a class="btn primary" href="/transactions#add">Add a distribution</a></div>
+{{end}}
+{{end}}

@@ -1,0 +1,106 @@
+{{define "content"}}
+<div class="head">
+  <div><h1>Tax</h1>
+    <p class="muted">Estimated tax position on your investments for an Australian-resident individual, by income year (1 July – 30 June).</p></div>
+  <div class="actions">
+    <form method="get" action="/tax" class="inline">
+      <select name="fy" onchange="this.form.submit()" aria-label="Income year">
+        {{range .FYs}}<option value="{{.FY}}" {{if eq .FY $.FY.FY}}selected{{end}}>{{.FY}}{{if .Current}} (current){{end}}</option>{{end}}
+      </select>
+    </form>
+  </div>
+</div>
+
+<div class="flash warnnote">Estimate only — not tax advice. It ignores deductions, tax offsets other than franking and foreign income, the Medicare levy low-income reduction and surcharge, and HELP. Check against your ATO pre-fill and your tax statements, or ask a registered tax agent.</div>
+
+<section class="card">
+  <div class="card-h"><h2>Your assumptions</h2></div>
+  <form method="post" action="/settings" class="grid">
+    <input type="hidden" name="fy" value="{{.FY.FY}}">
+    <label>Other taxable income <small>(per year — salary etc., excluding these investments)</small>
+      <input name="other_income" inputmode="decimal" value="{{printf "%.0f" .Set.OtherIncome}}"></label>
+    <label>Which parcels are sold first?
+      <select name="cgt_method">
+        <option value="fifo" {{sel .Method "fifo"}}>First in, first out (ATO default)</option>
+        <option value="hifo" {{sel .Method "hifo"}}>Highest cost first</option>
+        <option value="optimal" {{sel .Method "optimal"}}>Lowest taxable gain (discount-aware)</option>
+      </select></label>
+    <label>Capital losses brought forward <small>(before your first year of data)</small>
+      <input name="opening_loss" inputmode="decimal" value="{{printf "%.0f" .Set.OpeningLoss}}"></label>
+    <label class="check"><input type="checkbox" name="include_franking" {{if not .Set.ExcludeFranking}}checked{{end}}> Include franking credits in return figures</label>
+    <div class="wide"><button class="btn">Save assumptions</button>
+      <span class="muted s">Parcel choice is only valid if you actually identify parcels with your broker/records; otherwise the ATO assumes first in, first out.</span></div>
+  </form>
+</section>
+
+{{with .FY}}
+<section class="stats">
+  <div class="card stat"><span class="lbl">Assessable investment income</span><span class="big">${{money .Assessable}}</span><span class="sub">incl. franking credits &amp; net capital gain</span></div>
+  <div class="card stat"><span class="lbl">Tax on that income</span><span class="big">${{money .TaxOnTop}}</span><span class="sub">at your marginal rates ({{printf "%.1f" .EffectiveRate}}% effective) + 2% Medicare</span></div>
+  <div class="card stat"><span class="lbl">Franking &amp; foreign tax offsets</span><span class="big pos">${{money .Offsets}}</span><span class="sub">franking ${{money .Franking}}{{if .ForeignTaxOffset}} · foreign ${{money .FTOClaimed}}{{end}}</span></div>
+  <div class="card stat">
+    <span class="lbl">{{if lt .NetPayable 0.0}}Estimated refund{{else}}Estimated tax to pay{{end}}</span>
+    <span class="big {{if lt .NetPayable -0.005}}pos{{else if gt .NetPayable 0.005}}neg{{end}}">${{money (abs .NetPayable)}}</span>
+    <span class="sub">on top of tax on your ${{money0 .OtherIncome}} other income</span></div>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Distributions — {{.FY}}</h2>
+    <span><a class="link" href="/export/tax-distributions.csv?fy={{.FY}}">Export distributions CSV</a> · <a class="link" href="/export/tax-summary.csv">Export all-years summary CSV</a></span></div>
+  <div class="scroll"><table>
+    <tbody>
+      <tr><td>Cash received</td><td class="r">{{money .CashReceived}}</td></tr>
+      <tr><td>Franked dividends / distributions</td><td class="r">{{money .Franked}}</td></tr>
+      <tr><td>Franking credits (grossed-up, assessable)</td><td class="r">{{money .Franking}}</td></tr>
+      <tr><td>Unfranked, interest &amp; foreign income <span class="muted s">(incl. any foreign-tax gross-up)</span></td><td class="r">{{money .Unfranked}}</td></tr>
+      <tr><td>Capital gains distributed — discountable <span class="muted s">(gross)</span></td><td class="r">{{money .DistCGDisc}}</td></tr>
+      <tr><td>Capital gains distributed — other</td><td class="r">{{money .DistCGOther}}</td></tr>
+      <tr><td>Tax-deferred distributions <span class="muted s">(not income; reduces cost base)</span></td><td class="r">{{money .TaxDeferred}}</td></tr>
+      <tr><td>Foreign income tax offset</td><td class="r">{{money .ForeignTaxOffset}}</td></tr>
+    </tbody>
+  </table></div>
+  {{if .Undetailed}}<p class="warn s">⚠ {{.Undetailed}} distribution{{if ne .Undetailed 1}}s{{end}} in this year {{if eq .Undetailed 1}}has{{else}}have{{end}} no tax breakdown and {{if eq .Undetailed 1}}is{{else}}are{{end}} treated as fully unfranked income. Add franking credits and components from your <a class="link" href="/transactions">transactions</a> for an accurate figure — your annual tax statement from each fund is the best source.</p>{{end}}
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Capital gains — {{.FY}}</h2><a class="link" href="/export/tax-cgt.csv?fy={{.FY}}">Export CGT events CSV</a></div>
+  <div class="scroll"><table>
+    <tbody>
+      <tr><td>Gains on assets held over 12 months <span class="muted s">(discount-eligible)</span></td><td class="r">{{money (addf .GainsDisc .DistCGDisc)}}</td></tr>
+      <tr><td>Other gains</td><td class="r">{{money (addf .GainsOther .DistCGOther)}}</td></tr>
+      <tr><td>Capital losses this year</td><td class="r">−{{money .Losses}}</td></tr>
+      <tr><td>Losses brought forward</td><td class="r">−{{money .LossBroughtFwd}}</td></tr>
+      <tr><td>50% CGT discount applied</td><td class="r">−{{money .DiscountApplied}}</td></tr>
+      <tr><td><b>Net capital gain</b> <span class="muted s">(added to your income)</span></td><td class="r"><b>{{money .NetCapGain}}</b></td></tr>
+      <tr><td>Net capital losses carried forward</td><td class="r">{{money .LossCarriedFwd}}</td></tr>
+    </tbody>
+  </table></div>
+  {{if .Events}}
+  <h3>Disposals &amp; CGT events</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Sold</th><th>Holding</th><th>Acquired</th><th class="r">Units</th><th class="r">Cost base</th><th class="r">Proceeds</th><th class="r">Gain / (loss)</th><th>12m+</th></tr></thead>
+    <tbody>{{range .Events}}<tr>
+      <td>{{.Sold}}</td><td><b>{{short .Symbol}}</b>{{if eq .Kind "E4"}} <span class="tag">E4</span>{{end}}</td>
+      <td>{{if .Acquired}}{{.Acquired}} <span class="muted s">({{.Days}}d)</span>{{else}}—{{end}}</td>
+      <td class="r">{{if .Units}}{{units .Units}}{{end}}</td>
+      <td class="r">{{money .Cost}}</td><td class="r">{{money .Proceeds}}</td>
+      <td class="r {{cls .Gain}}">{{signed .Gain}}</td>
+      <td>{{if .Discount}}<span class="pill buy">50% off</span>{{else if eq .Kind "E4"}}<span class="muted s">cost base used up</span>{{else}}<span class="muted s">no</span>{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  {{else}}<p class="muted s">No disposals recorded in this income year.</p>{{end}}
+</section>
+{{end}}
+
+<section class="card note">
+  <h2>What's modelled</h2>
+  <ul>
+    <li><b>Income years</b> run 1 July – 30 June. Distributions fall in the year of their date — use the <i>tax year</i> field for a June-quarter distribution paid in July, which is assessed in the earlier year.</li>
+    <li><b>Rates</b> are resident marginal rates for the year ({{printf "%.0f" .FirstRate}}% first bracket for {{.FY.FY}}) plus a flat 2% Medicare levy, applied to the investment income stacked on top of your other income.</li>
+    <li><b>Franking credits</b> offset your tax and any excess is refunded. The <b>foreign income tax offset</b> is capped at the Australian tax on that income once it exceeds $1,000.</li>
+    <li><b>CGT</b> uses actual parcels (each buy or reinvestment is its own parcel, cost base includes brokerage, foreign trades converted at the transaction-date rate). A 50% discount applies to parcels owned more than 12 months; losses are applied to non-discount gains first, then discount gains, and carry forward automatically. Tax-deferred distributions reduce the cost base, and any excess becomes a gain (event E4).</li>
+    <li class="warn"><b>Not modelled — law changes:</b> the May 2026 Federal Budget proposed replacing the 50% CGT discount with cost-base indexation and a 30% minimum tax for gains from 1 July 2027 (gains accrued before then keep the discount). The ATO's last update I could find said it was not yet law, so current rules are used here. Check the ATO for the latest before selling on or after that date.</li>
+    <li>Not modelled: shares held in a company, trust, SMSF or joint names; wash-sale/trading-stock rules; foreign-currency hedging; non-resident or part-year residency; deductions such as accountant fees.</li>
+  </ul>
+</section>
+{{end}}

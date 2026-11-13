@@ -1,0 +1,25 @@
+{{define "content"}}
+<div class="head"><div><h1>Fund prices</h1>
+<p class="muted">Vanguard's unlisted managed funds have no public price API, so enter unit prices here (from your Vanguard statement or the unit-price page). ASX and US prices are fetched automatically.</p></div></div>
+
+{{range .Funds}}
+<section class="card">
+  <div class="card-h"><h2>{{.Name}} <span class="tag">{{.Symbol}}</span></h2></div>
+  <form method="post" action="/prices" class="stack">
+    <input type="hidden" name="symbol" value="{{.Symbol}}">
+    <label>Add prices <small>one per line: <code>date, price</code> — e.g. <code>{{$.Today}}, 98.4521</code></small>
+      <textarea name="data" rows="3" placeholder="{{$.Today}}, 98.4521"></textarea></label>
+    <div><button class="btn primary">Save prices</button></div>
+  </form>
+  {{if .Prices}}
+  <details><summary>{{len .Prices}} saved prices</summary>
+  <table class="compact"><thead><tr><th>Date</th><th class="r">Unit price</th></tr></thead>
+  <tbody>{{range .Prices}}<tr><td>{{.Date}}</td><td class="r">{{num4 .Value}}</td></tr>{{end}}</tbody></table></details>
+  {{else}}<p class="muted s">No prices yet — until you add one, the dashboard values this fund at your last trade price.</p>{{end}}
+</section>
+{{else}}
+<div class="card empty"><h2>No managed funds yet</h2>
+<p>Add a transaction with market <b>Managed fund</b> and it will appear here.</p>
+<a class="btn primary" href="/transactions#add">Add transaction</a></div>
+{{end}}
+{{end}}

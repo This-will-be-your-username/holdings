@@ -1,0 +1,94 @@
+{{define "content"}}
+<div class="head">
+  <div><h1>Transactions</h1><p class="muted">The record that drives every performance figure.</p></div>
+  <div class="actions"><a class="btn primary" href="/export/transactions.csv">⬇ Export CSV</a></div>
+</div>
+
+{{if .Suggest}}
+<section class="card">
+  <div class="card-h"><h2>Distributions you may not have recorded</h2></div>
+  <p class="muted s">Ex-dividend dates reported by Yahoo for units you held. Record the cash on its <em>pay</em> date, or as reinvested if you're in a DRP.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Ex-date</th><th>Holding</th><th class="r">Per unit</th><th class="r">Units held</th><th class="r">Est. amount</th><th></th></tr></thead>
+    <tbody>{{range .Suggest}}<tr>
+      <td>{{.Date}}</td><td><b>{{short .Symbol}}</b></td>
+      <td class="r">{{num4 .PerUnit}}</td><td class="r">{{units .Units}}</td>
+      <td class="r">{{.Currency}} {{money .Amount}}</td>
+      <td class="r"><a class="link" href="/transactions?symbol={{short .Symbol}}&type=dividend&date={{if .PayDate}}{{.PayDate}}{{else}}{{.Date}}{{end}}&amount={{printf "%.2f" .Amount}}{{if .FrankPct}}&franked={{printf "%.2f" .Franked}}&franking={{printf "%.2f" .Franking}}{{end}}#add">Record</a>{{if .FrankPct}}<div class="muted s">{{printf "%.0f" .FrankPct}}% franked · ~{{money .Franking}} credits</div>{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}
+
+<section class="card" id="add">
+  <div class="card-h"><h2>Add transaction</h2></div>
+  <form method="post" action="/transactions" class="grid">
+    <label>Market
+      <select name="market">
+        <option value="ASX" {{sel (index .Form "market") "ASX"}}>ASX (ETFs, shares)</option>
+        <option value="US" {{sel (index .Form "market") "US"}}>US stock / ETF</option>
+        <option value="MANAGED" {{sel (index .Form "market") "MANAGED"}}>Managed fund (e.g. Vanguard unlisted)</option>
+      </select></label>
+    <label>Symbol <input name="symbol" required placeholder="VAS, AAPL, VAN0002AU…" value="{{index .Form "symbol"}}"></label>
+    <label>Fund name <small>(managed funds)</small> <input name="name" placeholder="Vanguard Australian Shares Index" value="{{index .Form "name"}}"></label>
+    <label>Type
+      <select name="type">
+        <option value="buy" {{sel (index .Form "type") "buy"}}>Buy</option>
+        <option value="sell" {{sel (index .Form "type") "sell"}}>Sell</option>
+        <option value="dividend" {{sel (index .Form "type") "dividend"}}>Distribution (cash)</option>
+        <option value="drp" {{sel (index .Form "type") "drp"}}>Distribution reinvested (DRP)</option>
+      </select></label>
+    <label>Date <input type="date" name="date" required value="{{index .Form "date"}}"></label>
+    <label>Units <input name="units" inputmode="decimal" placeholder="buy / sell / DRP" value="{{index .Form "units"}}"></label>
+    <label>Price per unit <small>(in fund currency)</small> <input name="price" inputmode="decimal" value="{{index .Form "price"}}"></label>
+    <label>Brokerage <small>(AUD)</small> <input name="fees" inputmode="decimal" placeholder="0" value="{{index .Form "fees"}}"></label>
+    <label>Distribution amount <small>(cash / DRP total)</small> <input name="amount" inputmode="decimal" value="{{index .Form "amount"}}"></label>
+    <label>FX rate <small>(AUD per 1 USD — blank = auto)</small> <input name="fx" inputmode="decimal" value="{{index .Form "fx"}}"></label>
+    <details class="wide tax-details" {{if or (index .Form "franking") (index .Form "franked") (index .Form "cg_disc") (index .Form "cg_other") (index .Form "tax_deferred") (index .Form "foreign_tax")}}open{{end}}>
+      <summary>Distribution tax details <small>(optional — from your distribution / annual tax statement)</small></summary>
+      <div class="grid inner">
+        <label>Franked amount <small>(AUD, part of the distribution)</small> <input name="franked" inputmode="decimal" value="{{index .Form "franked"}}"></label>
+        <label>Franking credits <small>(AUD)</small> <input name="franking" inputmode="decimal" value="{{index .Form "franking"}}"></label>
+        <label>Foreign tax <small>(fund currency: withheld from a US dividend, or the offset on an AUD fund)</small> <input name="foreign_tax" inputmode="decimal" value="{{index .Form "foreign_tax"}}"></label>
+        <label>Tax year <small>(blank = by date; set if a June-quarter payment belongs to the earlier year)</small> <input name="tax_year" placeholder="2025-26" value="{{index .Form "tax_year"}}"></label>
+        <label>Capital gain, discountable <small>(AUD, gross, part of the distribution)</small> <input name="cg_disc" inputmode="decimal" value="{{index .Form "cg_disc"}}"></label>
+        <label>Capital gain, other <small>(AUD, gross)</small> <input name="cg_other" inputmode="decimal" value="{{index .Form "cg_other"}}"></label>
+        <label>Tax-deferred / return of capital <small>(AUD — reduces your cost base)</small> <input name="tax_deferred" inputmode="decimal" value="{{index .Form "tax_deferred"}}"></label>
+      </div>
+      <p class="muted s">The distribution amount above is the <b>gross</b> amount. Anything not broken out is treated as unfranked income. Franked + capital gain + tax-deferred can't exceed the amount.</p>
+    </details>
+    <label class="wide">Notes <input name="notes" value="{{index .Form "notes"}}"></label>
+    <div class="wide"><button class="btn primary">Add transaction</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Import CSV</h2></div>
+  <form method="post" action="/import" enctype="multipart/form-data" class="inline">
+    <input type="file" name="file" accept=".csv,text/csv" required>
+    <button class="btn">Import</button>
+  </form>
+  <p class="muted s">Columns: <code>date, symbol, market, type, units, price, fees, amount, fx, notes</code>. Types: buy, sell, dividend, drp. Market is ASX, US or MANAGED (defaults to ASX for <code>.AX</code> symbols, otherwise US). Files exported from here re-import cleanly; exact duplicates are skipped.</p>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>History</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Date</th><th>Holding</th><th>Type</th><th class="r">Units</th><th class="r">Price</th><th class="r">Brokerage</th><th class="r">FX</th><th class="r">AUD value</th><th class="r">Realised</th><th></th></tr></thead>
+    <tbody>
+    {{range .Rows}}<tr>
+      <td>{{.Date}}</td>
+      <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
+      <td><span class="pill {{.Type}}">{{typeLabel .Type}}</span></td>
+      <td class="r">{{if .Units}}{{units .Units}}{{end}}</td>
+      <td class="r">{{if .Price}}{{.Currency}} {{money .Price}}{{end}}</td>
+      <td class="r">{{if .Fees}}{{money .Fees}}{{end}}</td>
+      <td class="r">{{if ne .Currency "AUD"}}{{printf "%.4f" .FXUsed}}{{end}}</td>
+      <td class="r">{{money .GrossAUD}}{{if .Franking}}<div class="muted s">+{{money .Franking}} franking</div>{{end}}{{if .TaxDeferred}}<div class="muted s">{{money .TaxDeferred}} tax-deferred</div>{{end}}{{if .Warn}}<div class="warn s">⚠ {{.Warn}}</div>{{end}}</td>
+      <td class="r {{cls .Realised}}">{{if eq .Type "sell"}}{{signed .Realised}}{{end}}</td>
+      <td class="r"><form method="post" action="/transactions/delete" onsubmit="return confirm('Delete this transaction?')"><input type="hidden" name="id" value="{{.ID}}"><button class="x" title="Delete">✕</button></form></td>
+    </tr>{{else}}<tr><td colspan="10" class="muted">Nothing recorded yet.</td></tr>{{end}}
+    </tbody>
+  </table></div>
+</section>
+{{end}}

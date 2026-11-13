@@ -1,0 +1,29 @@
+{{define "base"}}<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FundTrack</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="/"><span class="logo">▲</span> FundTrack</a>
+    <nav>
+      <a href="/" class="{{if eq .Active "dashboard"}}on{{end}}">Dashboard</a>
+      <a href="/transactions" class="{{if eq .Active "transactions"}}on{{end}}">Transactions</a>
+      <a href="/distributions" class="{{if eq .Active "distributions"}}on{{end}}">Distributions</a>
+      <a href="/tax" class="{{if eq .Active "tax"}}on{{end}}">Tax</a>
+      <a href="/prices" class="{{if eq .Active "prices"}}on{{end}}">Fund prices</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  {{if .Msg}}<div class="flash ok">{{.Msg}}</div>{{end}}
+  {{if .Err}}<div class="flash bad">{{.Err}}</div>{{end}}
+  {{template "content" .}}
+</main>
+<footer class="wrap foot">Prices: Yahoo Finance (unofficial) · FX: ECB via Frankfurter · Not financial advice. Figures are for your records, not tax advice.</footer>
+</body>
+</html>{{end}}
