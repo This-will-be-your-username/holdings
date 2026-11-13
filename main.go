@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 	a := &App{store: store, pages: map[string]*template.Template{}}
-	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook"} {
+	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import"} {
 		a.pages[p] = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/base.html", "web/"+p+".html"))
 	}
 
@@ -51,7 +51,7 @@ func main() {
 	})
 	mux.HandleFunc("POST /transactions", a.addTxn)
 	mux.HandleFunc("POST /transactions/delete", a.deleteTxn)
-	mux.HandleFunc("POST /import", a.importTxns)
+	a.registerImport(mux)
 	mux.HandleFunc("GET /prices", a.pricesPage)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
@@ -150,7 +150,13 @@ func (a *App) txnPage(w http.ResponseWriter, r *http.Request, form map[string]st
 	for i, x := range res.Rows { // newest first
 		rows[len(rows)-1-i] = x
 	}
-	data := map[string]any{"Rows": rows, "Form": form, "Suggest": res.Suggested}
+	var imps []ImportRec
+	a.store.View(func(db *DB) {
+		for i := len(db.Imports) - 1; i >= 0 && len(imps) < 6; i-- { // newest first
+			imps = append(imps, db.Imports[i])
+		}
+	})
+	data := map[string]any{"Rows": rows, "Form": form, "Suggest": res.Suggested, "Imports": imps}
 	if errMsg != "" {
 		data["Err"] = errMsg
 	}
@@ -204,6 +210,7 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 		if inst != nil && db.Instruments[sym] == nil {
 			db.Instruments[sym] = inst
 		}
+		t.FP = Fingerprint(t)
 		db.Txns = append(db.Txns, t)
 		return nil
 	})
@@ -225,68 +232,6 @@ func (a *App) deleteTxn(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	redirect(w, r, "/transactions", "Transaction deleted", "")
-}
-
-func (a *App) importTxns(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
-	file, _, err := r.FormFile("file")
-	if err != nil {
-		redirect(w, r, "/transactions", "", "choose a CSV file to import")
-		return
-	}
-	defer file.Close()
-	txns, meta, err := ImportCSV(file)
-	if err != nil {
-		redirect(w, r, "/transactions", "", "import failed: "+err.Error())
-		return
-	}
-	// resolve any unknown instruments first (network, outside the lock)
-	known := map[string]bool{}
-	a.store.View(func(db *DB) {
-		for s := range db.Instruments {
-			known[s] = true
-		}
-	})
-	newInst := map[string]*Instrument{}
-	for sym, m := range meta {
-		if known[sym] {
-			continue
-		}
-		inst, err := resolveInstrument(sym, m[0], m[1])
-		if err != nil {
-			redirect(w, r, "/transactions", "", "import failed: "+err.Error())
-			return
-		}
-		newInst[sym] = inst
-	}
-	added, skipped := 0, 0
-	a.store.Update(func(db *DB) error {
-		for s, i := range newInst {
-			if db.Instruments[s] == nil {
-				db.Instruments[s] = i
-			}
-		}
-		for _, t := range txns {
-			dup := false
-			for _, e := range db.Txns {
-				if sameTxn(e, t) {
-					dup = true
-					break
-				}
-			}
-			if dup {
-				skipped++
-				continue
-			}
-			db.Txns = append(db.Txns, t)
-			added++
-		}
-		return nil
-	})
-	if len(newInst) > 0 {
-		go a.Refresh()
-	}
-	redirect(w, r, "/transactions", fmt.Sprintf("Imported %d transactions (%d duplicates skipped)", added, skipped), "")
 }
 
 func (a *App) pricesPage(w http.ResponseWriter, r *http.Request) {
@@ -438,6 +383,14 @@ var funcs = template.FuncMap{
 		return fmt.Sprintf("%.2f", v)
 	},
 	"addf": func(a, b float64) float64 { return a + b },
+	"add":  func(a, b int) int { return a + b },
+	"dict": func(kv ...any) map[string]any {
+		m := map[string]any{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			m[kv[i].(string)] = kv[i+1]
+		}
+		return m
+	},
 	"typeLabel": func(t string) string {
 		return map[string]string{"buy": "Buy", "sell": "Sell", "dividend": "Distribution", "drp": "Reinvested"}[t]
 	},

@@ -1,12 +1,50 @@
-{{define "content"}}
-<div class="head">
-  <div><h1>Sell estimator</h1>
-    <p class="muted">See the capital gains tax a sale would trigger <em>before</em> you make it — worked out against your real parcels, this year's other gains and losses, and your income.</p></div>
-</div>
+{{define "estTiles"}}
+<section class="stats">
+  <div class="card stat"><span class="lbl">Net sale proceeds</span><span class="big">${{money .NetProceeds}}</span><span class="sub">{{if .Fees}}after ${{money .Fees}} brokerage{{else}}before brokerage{{end}} · {{.Date}}{{if .Future}} (future date, today's prices){{end}}</span></div>
+  <div class="card stat"><span class="lbl">Capital gain / (loss)</span><span class="big {{cls .Sel.Gain}}">{{signed .Sel.Gain}}</span><span class="sub">{{signed .Sel.DiscountedGain}} after the 50% discount</span></div>
+  <div class="card stat"><span class="lbl">{{if lt .Sel.TaxDelta -0.005}}Estimated tax saving{{else}}Estimated extra tax{{end}}</span><span class="big {{if gt .Sel.TaxDelta 0.005}}neg{{else if lt .Sel.TaxDelta -0.005}}pos{{end}}">${{money (abs .Sel.TaxDelta)}}</span><span class="sub">for {{.FY}}, incl. 2% Medicare</span></div>
+  <div class="card stat"><span class="lbl">Proceeds after tax</span><span class="big">${{money .Sel.AfterTax}}</span><span class="sub">cash left after setting the tax aside</span></div>
+</section>
+{{if .Wait}}{{if gt .Wait.Saving 1.0}}
+<section class="card hint">
+  <h2>⏳ Waiting could save about ${{money .Wait.Saving}}</h2>
+  <p>{{.Wait.Parcels}} parcel{{if ne .Wait.Parcels 1}}s{{end}} in this sale {{if eq .Wait.Parcels 1}}is{{else}}are{{end}} still under 12 months old. From <b>{{.Wait.Date}}</b> ({{.Wait.Days}} days away) the 50% discount would apply, cutting the estimated tax to <b>${{money .Wait.TaxDelta}}</b> — assuming the same sale price, which of course the market won't guarantee. Don't let tax alone drive an investment decision.</p>
+</section>
+{{end}}{{end}}
+{{end}}
 
-{{if not .Holdings}}
-<div class="card empty"><h2>No open holdings</h2><p>Record some purchases first, then come back to estimate a sale.</p><a class="btn primary" href="/transactions#add">Add a transaction</a></div>
-{{else}}
+{{define "estLines"}}
+<section class="card">
+  <div class="card-h"><h2>What you're selling</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Holding</th><th class="r">Units</th><th class="r">Price</th><th class="r">Proceeds (AUD)</th><th class="r">Brokerage</th><th class="r">Left after sale</th></tr></thead>
+    <tbody>{{range .Lines}}<tr>
+      <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
+      <td class="r">{{units .Units}} <span class="muted s">of {{units .Held}}</span></td>
+      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}{{if ne .Currency "AUD"}}<div class="muted s">@ {{printf "%.4f" .FX}}</div>{{end}}</td>
+      <td class="r">{{money .GrossAUD}}</td><td class="r">{{money .Fees}}</td>
+      <td class="r">{{units .Remaining}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}
+
+{{define "estEffect"}}
+<section class="card">
+  <div class="card-h"><h2>Effect on your {{.FY}} tax</h2><a class="link" href="/tax?fy={{.FY}}">Full {{.FY}} tax position →</a></div>
+  <div class="scroll"><table>
+    <thead><tr><th></th><th class="r">Without this sale</th><th class="r">With this sale</th></tr></thead>
+    <tbody>
+      <tr><td>Net capital gain</td><td class="r">{{money .Base.NetCapGain}}</td><td class="r">{{money .Scen.NetCapGain}}</td></tr>
+      <tr><td>Assessable investment income</td><td class="r">{{money .Base.Assessable}}</td><td class="r">{{money .Scen.Assessable}}</td></tr>
+      <tr><td>Net capital losses carried forward</td><td class="r">{{money .Base.LossCarriedFwd}}</td><td class="r">{{money .Scen.LossCarriedFwd}}</td></tr>
+      <tr><td>Estimated net tax on investments <span class="muted s">(after franking offsets)</span></td><td class="r">{{money .Base.NetPayable}}</td><td class="r"><b>{{money .Scen.NetPayable}}</b></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted s">Taken over your other taxable income of ${{money0 .Scen.OtherIncome}} (set on the <a class="link" href="/tax">Tax page</a>). If that's $0 the estimate will be low — update it first.</p>
+</section>
+{{end}}
+
+{{define "sell"}}
 <section class="card">
   <form method="get" action="/estimator" id="est-form">
     <input type="hidden" name="run" value="1">
@@ -36,32 +74,8 @@
 </section>
 
 {{with .Est}}
-<section class="stats">
-  <div class="card stat"><span class="lbl">Net sale proceeds</span><span class="big">${{money .NetProceeds}}</span><span class="sub">{{if .Fees}}after ${{money .Fees}} brokerage{{else}}before brokerage{{end}} · {{.Date}}{{if .Future}} (future date, today's prices){{end}}</span></div>
-  <div class="card stat"><span class="lbl">Capital gain / (loss)</span><span class="big {{cls .Sel.Gain}}">{{signed .Sel.Gain}}</span><span class="sub">{{signed .Sel.DiscountedGain}} after the 50% discount</span></div>
-  <div class="card stat"><span class="lbl">{{if lt .Sel.TaxDelta -0.005}}Estimated tax saving{{else}}Estimated extra tax{{end}}</span><span class="big {{if gt .Sel.TaxDelta 0.005}}neg{{else if lt .Sel.TaxDelta -0.005}}pos{{end}}">${{money (abs .Sel.TaxDelta)}}</span><span class="sub">for {{.FY}}, incl. 2% Medicare</span></div>
-  <div class="card stat"><span class="lbl">Proceeds after tax</span><span class="big">${{money .Sel.AfterTax}}</span><span class="sub">cash left after setting the tax aside</span></div>
-</section>
-
-{{if .Wait}}{{if gt .Wait.Saving 1.0}}
-<section class="card hint">
-  <h2>⏳ Waiting could save about ${{money .Wait.Saving}}</h2>
-  <p>{{.Wait.Parcels}} parcel{{if ne .Wait.Parcels 1}}s{{end}} in this sale {{if eq .Wait.Parcels 1}}is{{else}}are{{end}} still under 12 months old. From <b>{{.Wait.Date}}</b> ({{.Wait.Days}} days away) the 50% discount would apply, cutting the estimated tax to <b>${{money .Wait.TaxDelta}}</b> — assuming the same sale price, which of course the market won't guarantee. Don't let tax alone drive an investment decision.</p>
-</section>
-{{end}}{{end}}
-
-<section class="card">
-  <div class="card-h"><h2>What you're selling</h2></div>
-  <div class="scroll"><table>
-    <thead><tr><th>Holding</th><th class="r">Units</th><th class="r">Price</th><th class="r">Proceeds (AUD)</th><th class="r">Brokerage</th><th class="r">Left after sale</th></tr></thead>
-    <tbody>{{range .Lines}}<tr>
-      <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
-      <td class="r">{{units .Units}} <span class="muted s">of {{units .Held}}</span></td>
-      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}{{if ne .Currency "AUD"}}<div class="muted s">@ {{printf "%.4f" .FX}}</div>{{end}}</td>
-      <td class="r">{{money .GrossAUD}}</td><td class="r">{{money .Fees}}</td>
-      <td class="r">{{units .Remaining}}</td></tr>{{end}}</tbody>
-  </table></div>
-</section>
+{{template "estTiles" .}}
+{{template "estLines" .}}
 
 <section class="card">
   <div class="card-h"><h2>Which parcels you sell matters</h2><span class="muted s">same sale, three ways to match it to what you bought</span></div>
@@ -90,32 +104,115 @@
     </tr>{{end}}</tbody>
   </table></div>
 </section>
+{{template "estEffect" .}}
+{{end}}
+{{end}}
+
+{{define "raise"}}
+<section class="card">
+  <form method="get" action="/estimator">
+    <input type="hidden" name="mode" value="raise"><input type="hidden" name="run" value="1"><input type="hidden" name="only_sent" value="1">
+    <div class="raise-grid">
+      <label>How much do you want to withdraw? <small>(AUD)</small>
+        <input name="amount" inputmode="decimal" required value="{{.Amount}}" placeholder="e.g. 5000"></label>
+      <label>Brokerage per holding sold <small>(AUD)</small>
+        <input name="brokerage" inputmode="decimal" value="{{.Brokerage}}" placeholder="0"></label>
+      <label>Sale date <input type="date" name="date" value="{{.Date}}"></label>
+      <label>How to choose
+        <select name="strategy">
+          <option value="least" {{sel .Strategy "least"}}>Least profitable holdings first, lowest-tax parcels</option>
+          <option value="tax" {{sel .Strategy "tax"}}>Lowest tax overall</option>
+        </select></label>
+      <label class="check wide"><input type="checkbox" name="after_tax" value="1" {{if .AfterTax}}checked{{end}}> The amount is what I want in my pocket <b>after</b> estimated capital gains tax</label>
+    </div>
+    <fieldset class="holds"><legend>Sell from</legend>
+      {{range .HoldOpts}}<label class="check"><input type="checkbox" name="only" value="{{.Symbol}}" {{if .Checked}}checked{{end}}> <b>{{short .Symbol}}</b> <span class="muted s">{{pctn .ReturnPct}} return · ${{money0 .Value}}</span></label>{{end}}
+    </fieldset>
+    <div class="est-actions"><button class="btn primary">Plan my withdrawal</button></div>
+  </form>
+  <p class="muted s">The planner uses parcels held over 12 months first (50% CGT discount), starting with your least profitable holding, and within each holding sells the parcels that cost the least tax. Listed securities are sold in whole units, so the total can be a little over.</p>
+</section>
+
+{{with .Raise}}{{$sel := .Sel}}
+{{range .Notes}}<div class="flash warnnote">{{.}}</div>{{end}}
+<section class="card hint">
+  <h2>To {{if .Opts.AfterTax}}end up with{{else}}raise{{end}} ${{money0 .Opts.Target}}{{if .Opts.AfterTax}} after tax{{end}}, sell {{$sel.HoldingsHit}} holding{{if ne $sel.HoldingsHit 1}}s{{end}}</h2>
+  <p>This plan brings in <b>${{money $sel.Raised}}</b> after brokerage and leaves <b>${{money $sel.AfterTax}}</b> once an estimated <b>${{money $sel.Tax}}</b> of capital gains tax is set aside.</p>
+</section>
+{{template "estTiles" $sel.Est}}
+{{template "estLines" $sel.Est}}
 
 <section class="card">
-  <div class="card-h"><h2>Effect on your {{.FY}} tax</h2><a class="link" href="/tax?fy={{.FY}}">Full {{.FY}} tax position →</a></div>
+  <div class="card-h"><h2>Why these parcels</h2><span class="muted s">{{$sel.Label}}</span></div>
   <div class="scroll"><table>
-    <thead><tr><th></th><th class="r">Without this sale</th><th class="r">With this sale</th></tr></thead>
-    <tbody>
-      <tr><td>Net capital gain</td><td class="r">{{money .Base.NetCapGain}}</td><td class="r">{{money .Scen.NetCapGain}}</td></tr>
-      <tr><td>Assessable investment income</td><td class="r">{{money .Base.Assessable}}</td><td class="r">{{money .Scen.Assessable}}</td></tr>
-      <tr><td>Net capital losses carried forward</td><td class="r">{{money .Base.LossCarriedFwd}}</td><td class="r">{{money .Scen.LossCarriedFwd}}</td></tr>
-      <tr><td>Estimated net tax on investments <span class="muted s">(after franking offsets)</span></td><td class="r">{{money .Base.NetPayable}}</td><td class="r"><b>{{money .Scen.NetPayable}}</b></td></tr>
-    </tbody>
+    <thead><tr><th>Holding</th><th>Acquired</th><th class="r">Units</th><th class="r">Cost base</th><th class="r">Proceeds</th><th class="r">Gain / (loss)</th><th>12m+</th><th>Why</th></tr></thead>
+    <tbody>{{range $sel.Rows}}{{$e := .Event}}<tr>
+      <td><b>{{short $e.Symbol}}</b></td>
+      <td>{{$e.Acquired}} <span class="muted s">({{$e.Days}}d)</span></td>
+      <td class="r">{{units $e.Units}}</td><td class="r">{{money $e.Cost}}</td><td class="r">{{money $e.Proceeds}}</td>
+      <td class="r {{cls $e.Gain}}">{{signed $e.Gain}}</td>
+      <td>{{if $e.Discount}}<span class="pill buy">50% off</span>{{else if gt $e.Gain 0.0}}<span class="pill sell">full rate</span>{{else}}<span class="muted s">loss</span>{{end}}</td>
+      <td class="s why">{{.Reason}}</td>
+    </tr>{{end}}</tbody>
   </table></div>
-  <p class="muted s">Taken over your other taxable income of ${{money0 .Scen.OtherIncome}} (set on the <a class="link" href="/tax">Tax page</a>). If that's $0 the estimate will be low — update it first.</p>
 </section>
+
+<section class="card">
+  <div class="card-h"><h2>Compared with the other way of choosing</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Approach</th><th class="r">Holdings sold</th><th class="r">Net raised</th><th class="r">Est. tax</th><th class="r">After tax</th></tr></thead>
+    <tbody>{{range .Plans}}<tr {{if .Selected}}class="sel-row"{{end}}>
+      <td><b>{{.Label}}</b>{{if .Selected}} <span class="tag">chosen</span>{{end}}{{if .Best}} <span class="pill buy">lowest tax</span>{{end}}</td>
+      <td class="r">{{.HoldingsHit}}</td><td class="r">{{money .Raised}}</td><td class="r"><b>{{signed .Tax}}</b></td><td class="r">{{money .AfterTax}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  <p class="muted s">"Least profitable first" leaves your best performers invested; "lowest tax overall" may sell winners if that costs less tax. The first is usually the better investment decision, the second the better tax one.</p>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Your holdings, least profitable first</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Holding</th><th class="r">Return so far</th><th class="r">Value</th><th class="r">Held over 12 months</th><th class="r">Planned sale</th></tr></thead>
+    <tbody>{{range $sel.Plan.Ranking}}<tr {{if .Excluded}}class="muted"{{end}}>
+      <td><b>{{short .Symbol}}</b>{{if .Excluded}} <span class="tag">not selected</span>{{else if .Order}} <span class="tag">#{{.Order}}</span>{{end}}<div class="muted s">{{.Name}}</div></td>
+      <td class="r {{cls .ReturnPct}}">{{pctn .ReturnPct}}</td><td class="r">{{money .Value}}</td>
+      <td class="r">{{money .EligibleV}} <span class="muted s">({{.EligibleParcels}} of {{.Parcels}} parcels)</span></td>
+      <td class="r">{{if .Taken}}<b>{{money .Taken}}</b>{{else}}—{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{template "estEffect" $sel.Est}}
 {{end}}
+{{end}}
+
+{{define "content"}}
+<div class="head">
+  <div><h1>Sell estimator</h1>
+    <p class="muted">See the capital gains tax a sale would trigger <em>before</em> you make it — worked out against your real parcels, this year's other gains and losses, and your income.</p></div>
+</div>
+
+<nav class="tabs" aria-label="Estimator mode">
+  <a href="/estimator" class="{{if ne .Mode "raise"}}on{{end}}">Sell specific holdings</a>
+  <a href="/estimator?mode=raise" class="{{if eq .Mode "raise"}}on{{end}}">Withdraw an amount</a>
+</nav>
+
+{{if not .Holdings}}
+<div class="card empty"><h2>No open holdings</h2><p>Record some purchases first, then come back to estimate a sale.</p><a class="btn primary" href="/transactions#add">Add a transaction</a></div>
+{{else}}
+{{if eq .Mode "raise"}}{{template "raise" .}}{{else}}{{template "sell" .}}{{end}}
 
 <section class="card note">
   <h2>About this estimate</h2>
   <ul>
     <li>Sale price defaults to the latest price (US holdings are converted at today's AUD rate; override either). A future date uses today's prices.</li>
     <li>The 50% discount applies to parcels owned more than 12 months. Capital losses (including ones carried forward from earlier years) are applied to full-rate gains first, then to discount gains.</li>
+    <li>Choosing parcels other than first-in-first-out only holds up if you identify them with your broker when you sell; otherwise the ATO assumes first in, first out.</li>
     <li>Not tax advice. See the <a class="link" href="/tax">Tax page</a> for what's modelled — including the proposed 2027 change to the CGT discount that isn't reflected here.</li>
   </ul>
 </section>
 {{end}}
 
+{{if ne .Mode "raise"}}
 <script>
 (function(){
   var rows=document.getElementById('sale-rows'); if(!rows) return;
@@ -137,4 +234,5 @@
   });
 })();
 </script>
+{{end}}
 {{end}}

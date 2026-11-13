@@ -1,0 +1,126 @@
+{{define "maprow"}}{{$f := .F}}<tr>
+  <td>{{$f.Label}}{{if $f.Essential}} <span class="tag">needed</span>{{end}}</td>
+  <td><select name="map_{{$f.Key}}">
+    <option value="-1" {{if eq $f.Sel -1}}selected{{end}}>— not in this file —</option>
+    {{range .Cols}}<option value="{{.Idx}}" {{if eq .Idx $f.Sel}}selected{{end}}>{{.Label}}</option>{{end}}
+  </select></td>
+  <td class="r">{{if ge $f.Sel 0}}<span class="conf {{if ge $f.Conf 75}}hi{{else if ge $f.Conf 45}}mid{{else}}lo{{end}}">{{$f.Conf}}%</span>{{else}}<span class="muted">—</span>{{end}}</td>
+</tr>{{end}}
+{{define "content"}}
+<div class="head">
+  <div><h1>Review import</h1>
+    <p class="muted"><b>{{.File}}</b> · {{.An.TotalDataLines}} rows · {{.An.Delim}}-separated. Nothing is saved until you press Import.</p></div>
+  <div class="actions"><a class="btn" href="/transactions#import">Cancel</a></div>
+</div>
+
+{{if .Prev}}<div class="flash warnnote">This exact file was already imported on {{slice .Prev.At 0 10}} ({{.Prev.Added}} added). Duplicates will be skipped, so re-importing it is harmless.</div>{{end}}
+{{if .Missing}}<div class="flash bad">Couldn't find {{range $i, $m := .Missing}}{{if $i}} or {{end}}{{$m}}{{end}}. Pick the right column below and press <b>Update preview</b>.</div>{{end}}
+
+<form method="post" action="/import/review" id="rev">
+<input type="hidden" name="t" value="{{.T}}">
+
+<section class="stats">
+  <div class="card stat"><span class="lbl">New</span><span class="big pos">{{.Sum.New}}</span><span class="sub">will be added</span></div>
+  <div class="card stat"><span class="lbl">Already recorded</span><span class="big">{{.Sum.Dup}}</span><span class="sub">recognised by fingerprint, skipped</span></div>
+  <div class="card stat"><span class="lbl">Possible duplicates</span><span class="big {{if .Sum.Possible}}neg{{end}}">{{.Sum.Possible}}</span><span class="sub">held back unless you tick them</span></div>
+  <div class="card stat"><span class="lbl">Skipped / unreadable</span><span class="big">{{add .Sum.Skipped .Sum.Errors}}</span><span class="sub">{{.Sum.Errors}} need attention</span></div>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>How the file was read</h2><span class="muted s">Change anything that's wrong, then update the preview.</span></div>
+  <div class="read-grid">
+    <label>Header row <small>(row number)</small><input name="header_row" inputmode="numeric" value="{{.HeaderRow}}"></label>
+    <label>Date format
+      <select name="date_order">
+        <option value="auto" {{sel .DateOrderPicked "auto"}}>Auto-detect</option>
+        <option value="DMY" {{sel .DateOrderPicked "DMY"}}>Day / Month / Year</option>
+        <option value="MDY" {{sel .DateOrderPicked "MDY"}}>Month / Day / Year</option>
+        <option value="YMD" {{sel .DateOrderPicked "YMD"}}>Year-Month-Day</option>
+      </select><small>{{.An.DateNote}}</small></label>
+    <label>Tickers with no exchange given are
+      <select name="def_market">
+        <option value="auto" {{sel .DefMarket "auto"}}>ASX (default)</option>
+        <option value="ASX" {{sel .DefMarket "ASX"}}>ASX</option>
+        <option value="US" {{sel .DefMarket "US"}}>US (NYSE / Nasdaq)</option>
+        <option value="MANAGED" {{sel .DefMarket "MANAGED"}}>Unlisted managed fund</option>
+      </select>{{if .An.DefaultedMkt}}<small class="warn">{{.An.DefaultedMkt}} row{{if ne .An.DefaultedMkt 1}}s{{end}} had no exchange or currency, so this default was used.</small>{{end}}</label>
+    <label>Symbol for every row <small>(only if the file has no ticker column)</small><input name="def_symbol" placeholder="e.g. VAN0002AU or VAS" value="{{.DefSymbol}}"></label>
+  </div>
+
+  <h3>Columns found</h3>
+  <div class="scroll"><table class="maptbl">
+    <thead><tr><th>Meaning</th><th>Column in your file</th><th class="r">Confidence</th></tr></thead>
+    <tbody>
+    {{range .Fields}}{{if or (ge .Sel 0) .Essential}}{{template "maprow" dict "F" . "Cols" $.Cols}}{{end}}{{end}}
+    </tbody>
+  </table></div>
+  <details class="more-cols"><summary>Other fields not found in this file — map one if your file has it</summary>
+  <div class="scroll"><table class="maptbl">
+    <thead><tr><th>Meaning</th><th>Column in your file</th><th class="r">Confidence</th></tr></thead>
+    <tbody>
+    {{range .Fields}}{{if and (lt .Sel 0) (not .Essential)}}{{template "maprow" dict "F" . "Cols" $.Cols}}{{end}}{{end}}
+    </tbody>
+  </table></div></details>
+  <div class="est-actions">
+    <button class="btn">Update preview</button>
+    <button class="btn primary" formaction="/import/commit" {{if not .Importable}}disabled{{end}}>Import {{.Sum.New}} transaction{{if ne .Sum.New 1}}s{{end}}</button>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Preview</h2>
+    <div class="chips" role="group" aria-label="Filter rows">
+      <button type="button" class="chip on" data-f="all">All</button>
+      <button type="button" class="chip" data-f="new">New</button>
+      <button type="button" class="chip" data-f="dup">Already recorded</button>
+      <button type="button" class="chip" data-f="possible">Possible duplicates</button>
+      <button type="button" class="chip" data-f="skip">Skipped</button>
+    </div></div>
+  <div class="scroll"><table id="prev">
+    <thead><tr><th>Row</th><th>Result</th><th>Date</th><th>Holding</th><th>Type</th><th class="r">Units</th><th class="r">Price</th><th class="r">Fees</th><th class="r">Amount</th><th>Notes</th></tr></thead>
+    <tbody>
+    {{range .An.Rows}}
+    <tr data-c="{{if or (eq .Status "skip") (eq .Status "error")}}skip{{else}}{{.Class}}{{end}}">
+      <td>{{.Line}}</td>
+      <td>
+        {{if eq .Status "ok"}}
+          {{if eq .Class "new"}}<span class="pill buy">New</span>
+          {{else if eq .Class "dup"}}<span class="pill dividend">Already recorded</span>
+          {{else}}<span class="pill sell">Possible duplicate</span>
+            <label class="check"><input type="checkbox" name="inc_{{.Line}}" value="1"> import anyway</label>{{end}}
+        {{else if eq .Status "error"}}<span class="pill sell">Needs attention</span>
+        {{else}}<span class="pill drp">Skipped</span>{{end}}
+      </td>
+      {{if eq .Status "ok"}}
+        <td>{{.Txn.Date}}</td>
+        <td><b>{{short .Txn.Symbol}}</b> <span class="tag">{{.Market}}</span></td>
+        <td>{{typeLabel .Txn.Type}}</td>
+        <td class="r">{{if .Txn.Units}}{{units .Txn.Units}}{{end}}</td>
+        <td class="r">{{if .Txn.Price}}{{money .Txn.Price}}{{end}}</td>
+        <td class="r">{{if .Txn.Fees}}{{money .Txn.Fees}}{{end}}</td>
+        <td class="r">{{if .Txn.Amount}}{{money .Txn.Amount}}{{end}}</td>
+        <td class="s">{{if .Why}}<div>{{.Why}}</div>{{end}}
+          {{if .Existing}}<div class="muted">recorded: {{.Existing.Date}} {{typeLabel .Existing.Type}}{{if .Existing.Units}} {{units .Existing.Units}}{{end}}{{if .Existing.Price}} @ {{money .Existing.Price}}{{end}}{{if .Existing.Amount}} ${{money .Existing.Amount}}{{end}}</div>{{end}}
+          {{range .Warn}}<div class="warn">⚠ {{.}}</div>{{end}}
+          {{if .Txn.Ref}}<div class="muted">ref {{.Txn.Ref}}</div>{{end}}</td>
+      {{else}}
+        <td colspan="7" class="muted s">{{.Reason}}</td><td class="s muted">{{index .Raw 0}}…</td>
+      {{end}}
+    </tr>
+    {{else}}<tr><td colspan="10" class="muted">No rows were found under the header row.</td></tr>{{end}}
+    </tbody>
+  </table></div>
+</section>
+</form>
+
+<script>
+(function(){
+  var chips=document.querySelectorAll('.chip'), rows=document.querySelectorAll('#prev tbody tr[data-c]');
+  chips.forEach(function(c){c.addEventListener('click',function(){
+    chips.forEach(function(x){x.classList.remove('on')}); c.classList.add('on');
+    var f=c.getAttribute('data-f');
+    rows.forEach(function(r){r.style.display=(f==='all'||r.getAttribute('data-c')===f)?'':'none'});
+  })});
+})();
+</script>
+{{end}}

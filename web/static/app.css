@@ -135,3 +135,36 @@ dl.facts dt{color:var(--muted)} dl.facts dd{margin:0;text-align:right}
 /* wrapped table-cell content (added by charts.js) */
 td>.v{display:block}
 @media (max-width:720px){table.stack td>.v{text-align:right;min-width:0}}
+
+/* ===== import review ===== */
+.read-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
+.read-grid small{font-weight:400;color:var(--muted);line-height:1.35}
+.maptbl select{width:100%;min-width:200px}
+.maptbl td{vertical-align:middle;padding:7px 10px}
+.conf{font-weight:600;font-size:12.5px;padding:1px 7px;border-radius:99px}
+.conf.hi{background:color-mix(in srgb,var(--pos) 14%,transparent);color:var(--pos)}
+.conf.mid{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.conf.lo{background:color-mix(in srgb,var(--neg) 14%,transparent);color:var(--neg)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:inherit;font-size:13px;padding:5px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer}
+.chip.on{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);border-color:transparent;font-weight:600}
+#prev td label.check{margin-top:4px;font-size:12.5px;padding:0}
+button:disabled{opacity:.5;cursor:not-allowed}
+@media (max-width:980px){.read-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:720px){.read-grid{grid-template-columns:1fr} .chip{padding:8px 12px} .maptbl select{min-width:0}}
+
+/* ===== estimator tabs & withdrawal form ===== */
+nav.tabs{display:flex;gap:6px;margin:-6px 0 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav.tabs a{padding:9px 14px;border-radius:9px 9px 0 0;color:var(--muted);text-decoration:none;font-weight:550;border-bottom:2px solid transparent;margin-bottom:-1px}
+nav.tabs a:hover{color:var(--ink)}
+nav.tabs a.on{color:var(--accent);border-bottom-color:var(--accent);background:none}
+.raise-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;margin-bottom:12px}
+.raise-grid .wide{grid-column:1/-1}
+fieldset.holds{border:1px solid var(--line);border-radius:10px;padding:10px 14px 4px;margin:0 0 14px;display:flex;flex-wrap:wrap;gap:4px 22px}
+fieldset.holds legend{color:var(--muted);font-size:13px;font-weight:550;padding:0 6px}
+fieldset.holds label.check{padding:0 0 6px;align-self:auto}
+td.why{max-width:340px;color:var(--muted);white-space:normal}
+@media (max-width:980px){.raise-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:720px){.raise-grid{grid-template-columns:1fr} td.why{max-width:none} fieldset.holds{flex-direction:column}}
+details.more-cols{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+details.more-cols summary{cursor:pointer;color:var(--muted);font-size:13.5px}

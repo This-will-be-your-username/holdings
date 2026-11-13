@@ -233,9 +233,11 @@
       Array.prototype.forEach.call(t.tBodies, function (b) {
         Array.prototype.forEach.call(b.rows, function (r) {
           if (r.cells.length === 1 && r.cells[0].colSpan > 1) { r.classList.add('note-row'); return; }
+          var ci = 0; // column position, accounting for colspan
           Array.prototype.forEach.call(r.cells, function (c, i) {
-            if (!heads[i]) return;
-            c.setAttribute('data-label', heads[i]);
+            var pos = ci; ci += c.colSpan || 1;
+            if (c.colSpan > 1 || !heads[pos]) return;
+            c.setAttribute('data-label', heads[pos]);
             if (i > 0 && c.childNodes.length) { // keep value + sub-line together as one flex item when stacked
               var v = document.createElement('span'); v.className = 'v';
               while (c.firstChild) v.appendChild(c.firstChild);

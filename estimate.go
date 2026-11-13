@@ -19,6 +19,7 @@ type SaleReq struct {
 	Units, Price, Fees, FX float64
 	All                    bool
 	Target                 float64 // alternative to Units: AUD proceeds to raise
+	Picks                  []Pick  // exact parcels to sell (set by the withdrawal planner); empty = use the parcel method
 }
 
 type SaleLine struct {
@@ -57,6 +58,7 @@ var methodLabels = map[string]string{
 	"fifo":    "First in, first out",
 	"hifo":    "Highest cost first",
 	"optimal": "Lowest taxable gain",
+	"plan":    "Selected parcels",
 }
 
 func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) (*Estimate, error) {
@@ -82,6 +84,8 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 	}
 
 	used := map[string]float64{}
+	picks := map[string][]Pick{}
+	hasPicks := false
 	var txns []Txn
 	var lines []SaleLine
 	for i, rq := range reqs {
@@ -121,6 +125,10 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 			return nil, fmt.Errorf("price, fees and FX can't be negative")
 		}
 		used[rq.Symbol] += units
+		if len(rq.Picks) > 0 {
+			hasPicks = true
+			picks[fmt.Sprintf("est-%d", i)] = rq.Picks
+		}
 		txns = append(txns, Txn{ID: fmt.Sprintf("est-%d", i), Symbol: rq.Symbol, Type: "sell",
 			Units: units, Price: price, Fees: rq.Fees, FX: rq.FX})
 		lines = append(lines, SaleLine{Symbol: rq.Symbol, Name: h.Name, Currency: h.Currency, Units: units,
@@ -138,6 +146,7 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 			s.Txns = append(s.Txns, t)
 		}
 		s.Settings.EstMethod = method
+		s.Settings.EstPicks = picks
 		res := Compute(&s, now)
 		return res, ComputeTax(&s, res.Rows, now)
 	}
@@ -151,7 +160,11 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 	}
 
 	est := &Estimate{Date: date, FY: fy, Base: baseFY, Lines: lines, Future: date > now.Format(dateFmt)}
-	for _, m := range methodOrder {
+	order := methodOrder
+	if hasPicks { // parcels were chosen explicitly: there is only one way to read the sale
+		order, selected = []string{"plan"}, "plan"
+	}
+	for _, m := range order {
 		res, tr := run(m, date)
 		y := tr.ByFY[fy]
 		if y == nil {
@@ -250,6 +263,10 @@ type formRow struct{ Symbol, Units, Price, Fees, Target string }
 
 func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	if r.FormValue("mode") == "raise" {
+		a.raisePage(w, r)
+		return
+	}
 	var res *Result
 	var set Settings
 	a.store.View(func(db *DB) { res = Compute(db, time.Now()); set = db.Settings })
@@ -293,7 +310,7 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{"Holdings": res.Holdings, "Rows": rows, "Date": date, "Method": method,
-		"Today": time.Now().Format(dateFmt), "Methods": methodOrder, "Labels": methodLabels}
+		"Today": time.Now().Format(dateFmt), "Methods": methodOrder, "Labels": methodLabels, "Mode": "sell"}
 	if r.FormValue("run") != "" {
 		var est *Estimate
 		var err error

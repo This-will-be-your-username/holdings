@@ -83,6 +83,7 @@ type parcel struct {
 	acqS  string
 	units float64
 	cost  float64 // AUD cost base of the remaining units
+	seq   int     // order this holding's parcels were created in (stable id for Pick)
 }
 
 type CGTEvent struct {
@@ -114,6 +115,14 @@ func cgtEvents(rows []Row, method string) []CGTEvent { return cgtEventsM(rows, m
 // the sale estimator) can use their own parcel method without changing how
 // your real past sales were matched.
 func cgtEventsM(rows []Row, method, estMethod string) []CGTEvent {
+	ev, _ := cgtReplay(rows, method, estMethod, nil)
+	return ev
+}
+
+// cgtReplay is the parcel engine. picks (by hypothetical-sale id) name exact parcels to sell
+// first; anything not covered by picks is matched using the method. It also returns the
+// parcels left open at the end, which the withdrawal planner chooses from.
+func cgtReplay(rows []Row, method, estMethod string, picks map[string][]Pick) ([]CGTEvent, map[string][]*parcel) {
 	parcels := map[string][]*parcel{}
 	var out []CGTEvent
 	for _, r := range rows {
@@ -148,7 +157,7 @@ func cgtEventsM(rows []Row, method, estMethod string) []CGTEvent {
 		switch r.Type {
 		case "buy", "drp":
 			d, _ := time.Parse(dateFmt, r.Date)
-			parcels[r.Symbol] = append(parcels[r.Symbol], &parcel{d, r.Date, r.Units, r.GrossAUD})
+			parcels[r.Symbol] = append(parcels[r.Symbol], &parcel{acq: d, acqS: r.Date, units: r.Units, cost: r.GrossAUD, seq: len(parcels[r.Symbol])})
 		case "sell":
 			sold, _ := time.Parse(dateFmt, r.Date)
 			ps := parcels[r.Symbol]
@@ -175,14 +184,11 @@ func cgtEventsM(rows []Row, method, estMethod string) []CGTEvent {
 				sort.SliceStable(order, func(i, j int) bool { return key(order[i]) < key(order[j]) })
 			}
 			need := r.Units
-			for _, p := range order {
-				if need <= 1e-9 {
-					break
+			consume := func(p *parcel, want float64) {
+				u := math.Min(math.Min(want, need), p.units)
+				if u <= 1e-9 {
+					return
 				}
-				if p.units <= 1e-9 {
-					continue
-				}
-				u := math.Min(need, p.units)
 				cost := p.cost * u / p.units
 				proceeds := ppu * u
 				out = append(out, CGTEvent{
@@ -194,9 +200,22 @@ func cgtEventsM(rows []Row, method, estMethod string) []CGTEvent {
 				p.units -= u
 				need -= u
 			}
+			for _, pk := range picks[r.ID] { // exact parcels chosen by the withdrawal planner
+				for _, p := range ps {
+					if p.seq == pk.Seq {
+						consume(p, pk.Units)
+					}
+				}
+			}
+			for _, p := range order {
+				if need <= 1e-9 {
+					break
+				}
+				consume(p, need)
+			}
 		}
 	}
-	return out
+	return out, parcels
 }
 
 func perUnit(p *parcel) float64 {
@@ -324,7 +343,7 @@ func ComputeTax(db *DB, rows []Row, now time.Time) *TaxResult {
 		}
 	}
 
-	tr.All = cgtEventsM(rows, set.CGTMethod, set.EstMethod)
+	tr.All, _ = cgtReplay(rows, set.CGTMethod, set.EstMethod, set.EstPicks)
 	for _, e := range tr.All {
 		f := get(e.FY)
 		f.Events = append(f.Events, e)

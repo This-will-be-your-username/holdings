@@ -12,13 +12,14 @@ import (
 var txnHeader = []string{"date", "symbol", "name", "market", "type", "units", "price", "currency",
 	"fees_aud", "amount", "fx_to_aud", "value_aud", "cash_flow_aud", "units_after",
 	"avg_cost_aud_after", "realised_gain_aud", "notes",
-	"franked_aud", "franking_credits_aud", "foreign_tax", "cg_discount_aud", "cg_other_aud", "tax_deferred_aud", "tax_year"}
+	"franked_aud", "franking_credits_aud", "foreign_tax", "cg_discount_aud", "cg_other_aud", "tax_deferred_aud", "tax_year",
+	"source_ref", "fingerprint"}
 
 func f(v float64, dp int) string { return strconv.FormatFloat(v, 'f', dp, 64) }
 
 // WriteTransactionsCSV exports every transaction with the AUD values the
 // performance numbers are derived from, so results can be re-checked in a
-// spreadsheet. The leading columns match what ImportCSV reads (round-trips).
+// spreadsheet. Re-uploading this file is safe: the fingerprint and source_ref columns let the importer recognise every row.
 func WriteTransactionsCSV(w io.Writer, res *Result) error {
 	cw := csv.NewWriter(w)
 	_ = cw.Write(txnHeader)
@@ -30,6 +31,7 @@ func WriteTransactionsCSV(w io.Writer, res *Result) error {
 			f(r.GrossAUD, 2), f(r.CashFlowAUD, 2), f(r.UnitsAfter, 6),
 			f(r.AvgCostAfter, 4), f(r.Realised, 2), r.Notes,
 			f(r.Franked, 2), f(r.Franking, 2), f(r.ForeignTax, 2), f(r.CGDisc, 2), f(r.CGOther, 2), f(r.TaxDeferred, 2), r.TaxYear,
+			r.Ref, firstNonEmpty(r.FP, Fingerprint(r.Txn)),
 		})
 	}
 	cw.Flush()
@@ -120,103 +122,10 @@ func validateTxn(t *Txn) error {
 	return nil
 }
 
-// ImportCSV parses a CSV (header-driven) into transactions. Columns:
-// date, symbol, market (ASX|US|MANAGED), type, units, price, fees|fees_aud,
-// amount, fx|fx_to_aud, notes, name. Extra columns are ignored.
-func ImportCSV(r io.Reader) ([]Txn, map[string][2]string, error) {
-	cr := csv.NewReader(r)
-	cr.FieldsPerRecord = -1
-	cr.TrimLeadingSpace = true
-	recs, err := cr.ReadAll()
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(recs) < 2 {
-		return nil, nil, fmt.Errorf("CSV needs a header row and at least one data row")
-	}
-	idx := map[string]int{}
-	for i, h := range recs[0] {
-		idx[strings.ToLower(strings.TrimSpace(strings.TrimPrefix(h, "\ufeff")))] = i
-	}
-	get := func(rec []string, names ...string) string {
-		for _, n := range names {
-			if i, ok := idx[n]; ok && i < len(rec) {
-				return strings.TrimSpace(rec[i])
-			}
-		}
-		return ""
-	}
-	for _, need := range []string{"date", "symbol", "type"} {
-		if _, ok := idx[need]; !ok {
-			return nil, nil, fmt.Errorf("missing required column %q", need)
-		}
-	}
-	var out []Txn
-	meta := map[string][2]string{} // symbol -> market,name
-	for n, rec := range recs[1:] {
-		line := n + 2
-		if len(strings.Join(rec, "")) == 0 {
-			continue
-		}
-		d, err := parseDate(get(rec, "date"))
-		if err != nil {
-			return nil, nil, fmt.Errorf("line %d: %v", line, err)
-		}
-		market := strings.ToUpper(get(rec, "market"))
-		sym := strings.ToUpper(get(rec, "symbol"))
-		if market == "" {
-			if strings.HasSuffix(sym, ".AX") {
-				market = MarketASX
-			} else {
-				market = MarketUS
-			}
-		}
-		if market != MarketASX && market != MarketUS && market != MarketManaged {
-			return nil, nil, fmt.Errorf("line %d: market must be ASX, US or MANAGED", line)
-		}
-		sym = normSymbol(sym, market)
-		typ := strings.ToLower(get(rec, "type"))
-		switch typ {
-		case "distribution", "div", "income":
-			typ = "dividend"
-		case "reinvest", "reinvestment":
-			typ = "drp"
-		}
-		t := Txn{
-			ID: newID(), Date: d, Symbol: sym, Type: typ,
-			Units: pnum(get(rec, "units")), Price: pnum(get(rec, "price")),
-			Fees: pnum(get(rec, "fees_aud", "fees")), Amount: pnum(get(rec, "amount")),
-			FX: pnum(get(rec, "fx_to_aud", "fx")), Notes: get(rec, "notes"),
-			Franked: pnum(get(rec, "franked_aud", "franked")), Franking: pnum(get(rec, "franking_credits_aud", "franking")),
-			ForeignTax: pnum(get(rec, "foreign_tax")), CGDisc: pnum(get(rec, "cg_discount_aud", "cg_discount", "cg_disc")),
-			CGOther: pnum(get(rec, "cg_other_aud", "cg_other")), TaxDeferred: pnum(get(rec, "tax_deferred_aud", "tax_deferred")),
-			TaxYear: get(rec, "tax_year"),
-		}
-		if err := validateTxn(&t); err != nil {
-			return nil, nil, fmt.Errorf("line %d: %v", line, err)
-		}
-		out = append(out, t)
-		meta[sym] = [2]string{market, get(rec, "name")}
-	}
-	return out, meta, nil
-}
-
 func validFY(s string) bool {
 	var y, n int
 	if _, err := fmt.Sscanf(s, "%4d-%2d", &y, &n); err != nil || len(s) != 7 {
 		return false
 	}
 	return y >= 1990 && y < 2100 && n == (y+1)%100
-}
-
-func sameTxn(a, b Txn) bool {
-	const e = 1e-6
-	abs := func(x float64) float64 {
-		if x < 0 {
-			return -x
-		}
-		return x
-	}
-	return a.Date == b.Date && a.Symbol == b.Symbol && a.Type == b.Type &&
-		abs(a.Units-b.Units) < e && abs(a.Price-b.Price) < e && abs(a.Amount-b.Amount) < 0.005
 }

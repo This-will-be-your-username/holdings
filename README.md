@@ -58,3 +58,35 @@ This is a **statistical projection, not a prediction**: it shows ranges (50% / 8
 Responsive layout: scrollable nav, charts redrawn at the real screen width, tables collapse into labelled cards on
 phones, 16px inputs and 44px touch targets, gzip for small payloads. Static assets are embedded in the binary —
 rebuild after changing anything under `web/`.
+
+## Withdraw an amount (`/estimator?mode=raise`)
+Say how much cash you want out and the planner chooses what to sell:
+1. only parcels held **over 12 months** (50% CGT discount) - others only if those can't cover it, and flagged;
+2. from your **least profitable holding** first (total return so far), so winners stay invested;
+3. within a holding, the parcels with the **lowest taxable gain** (losses first, then highest cost base).
+Options: brokerage per holding, sale date, "after tax" (the amount is cash in hand after estimated CGT), restrict to
+chosen holdings, and an alternative **lowest tax overall** strategy shown for comparison. Listed securities are
+sold in whole units, so the total can be slightly over. Each parcel shows why it was chosen.
+
+## Importing broker / fund-manager CSVs
+Upload any export (or paste CSV text) on the Transactions page. The importer needs no template:
+- finds the delimiter and header row (skips statement preambles and total rows);
+- scores every column from header-name regexes **and** the values (dates, tickers, buy/sell wording);
+- reads dates (day-first / month-first / ISO / `2 Jan 2025` / `20250102;093015`), numbers (`$1,234.50`, `(12.5)`,
+  `1.234,50`, `12.5CR`), actions (`Buy/Bought/B/Application`, `Sell/Sold/Redemption`, `Distribution`, `DRP`),
+  tickers (`VAS`, `VAS.AX`, `ASX:VAS`, `VAS AU Equity`, `NASDAQ:AAPL`, APIR `VAN0002AU`, ISIN, `Name (VAS)`),
+  signed quantities, brokerage + GST, currency and FX direction, franking and withholding columns;
+- shows what it understood on a **review page** where every column choice, the date format and the default
+  market can be changed before anything is saved.
+
+## Fingerprints & duplicate detection
+Every transaction gets a content **fingerprint** (hash of date, symbol, type, units, price - or amount for
+distributions - ignoring brokerage/notes/formatting) and keeps any institution **reference** (contract note
+number). On upload each row is classified:
+- **already recorded** - same reference, or same fingerprint (count-aware: two identical trades on one day are
+  two transactions, so only as many copies as you already have are skipped);
+- **possible duplicate** - same trade with a slightly different date (trade vs settlement) or rounded price;
+  held back unless you tick *import anyway*;
+- **new**.
+The same trade arriving from two different brokers' formats is recognised, an identical file re-upload is
+flagged, the app's own export re-imports as 100% already recorded, and each import can be **undone**.
