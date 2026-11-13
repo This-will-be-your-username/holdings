@@ -57,6 +57,7 @@ type Settings struct {
 	CGTMethod       string  `json:"cgt_method"`       // fifo | hifo | optimal
 	ExcludeFranking bool    `json:"exclude_franking"` // leave franking credits out of return figures
 	OpeningLoss     float64 `json:"opening_loss"`     // net capital losses brought forward before your first year of data
+	EstMethod       string  `json:"-"`                // runtime only: parcel method for hypothetical sales (sale estimator)
 }
 
 // DivInfo is distribution detail from the ASX (pay date, franking %).

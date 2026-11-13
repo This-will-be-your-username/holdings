@@ -1,0 +1,140 @@
+{{define "content"}}
+<div class="head">
+  <div><h1>Sell estimator</h1>
+    <p class="muted">See the capital gains tax a sale would trigger <em>before</em> you make it — worked out against your real parcels, this year's other gains and losses, and your income.</p></div>
+</div>
+
+{{if not .Holdings}}
+<div class="card empty"><h2>No open holdings</h2><p>Record some purchases first, then come back to estimate a sale.</p><a class="btn primary" href="/transactions#add">Add a transaction</a></div>
+{{else}}
+<section class="card">
+  <form method="get" action="/estimator" id="est-form">
+    <input type="hidden" name="run" value="1">
+    <div id="sale-rows">
+    {{range .Rows}}{{$row := .}}
+      <div class="sale-row">
+        <label>Holding
+          <select name="sym" class="sym">
+            {{range $.Holdings}}<option value="{{.Symbol}}" data-price="{{printf "%.4f" .Price}}" data-held="{{units .Units}}" data-ccy="{{.Currency}}" {{sel .Symbol $row.Symbol}}>{{short .Symbol}} — {{units .Units}} held</option>{{end}}
+          </select></label>
+        <label>Units <small>number or <b>all</b></small><input name="units" value="{{$row.Units}}" placeholder="e.g. 25 or all"></label>
+        <label>…or raise <small>(AUD)</small><input name="target" inputmode="decimal" value="{{$row.Target}}" placeholder="$ amount"></label>
+        <label>Sale price <small class="ccy"></small><input name="price" inputmode="decimal" value="{{$row.Price}}" class="px" placeholder="current"></label>
+        <label>Brokerage <small>(AUD)</small><input name="fees" inputmode="decimal" value="{{$row.Fees}}" placeholder="0"></label>
+        <button type="button" class="x rm" title="Remove" aria-label="Remove holding">✕</button>
+      </div>
+    {{end}}
+    </div>
+    <div class="est-actions">
+      <button type="button" class="btn" id="add-row">+ Sell another holding</button>
+      <label class="inl">Sale date <input type="date" name="date" value="{{.Date}}"></label>
+      <label class="inl">Parcels sold <select name="method">
+        {{range .Methods}}<option value="{{.}}" {{sel . $.Method}}>{{index $.Labels .}}</option>{{end}}</select></label>
+      <button class="btn primary">Estimate tax</button>
+    </div>
+  </form>
+</section>
+
+{{with .Est}}
+<section class="stats">
+  <div class="card stat"><span class="lbl">Net sale proceeds</span><span class="big">${{money .NetProceeds}}</span><span class="sub">{{if .Fees}}after ${{money .Fees}} brokerage{{else}}before brokerage{{end}} · {{.Date}}{{if .Future}} (future date, today's prices){{end}}</span></div>
+  <div class="card stat"><span class="lbl">Capital gain / (loss)</span><span class="big {{cls .Sel.Gain}}">{{signed .Sel.Gain}}</span><span class="sub">{{signed .Sel.DiscountedGain}} after the 50% discount</span></div>
+  <div class="card stat"><span class="lbl">{{if lt .Sel.TaxDelta -0.005}}Estimated tax saving{{else}}Estimated extra tax{{end}}</span><span class="big {{if gt .Sel.TaxDelta 0.005}}neg{{else if lt .Sel.TaxDelta -0.005}}pos{{end}}">${{money (abs .Sel.TaxDelta)}}</span><span class="sub">for {{.FY}}, incl. 2% Medicare</span></div>
+  <div class="card stat"><span class="lbl">Proceeds after tax</span><span class="big">${{money .Sel.AfterTax}}</span><span class="sub">cash left after setting the tax aside</span></div>
+</section>
+
+{{if .Wait}}{{if gt .Wait.Saving 1.0}}
+<section class="card hint">
+  <h2>⏳ Waiting could save about ${{money .Wait.Saving}}</h2>
+  <p>{{.Wait.Parcels}} parcel{{if ne .Wait.Parcels 1}}s{{end}} in this sale {{if eq .Wait.Parcels 1}}is{{else}}are{{end}} still under 12 months old. From <b>{{.Wait.Date}}</b> ({{.Wait.Days}} days away) the 50% discount would apply, cutting the estimated tax to <b>${{money .Wait.TaxDelta}}</b> — assuming the same sale price, which of course the market won't guarantee. Don't let tax alone drive an investment decision.</p>
+</section>
+{{end}}{{end}}
+
+<section class="card">
+  <div class="card-h"><h2>What you're selling</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Holding</th><th class="r">Units</th><th class="r">Price</th><th class="r">Proceeds (AUD)</th><th class="r">Brokerage</th><th class="r">Left after sale</th></tr></thead>
+    <tbody>{{range .Lines}}<tr>
+      <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
+      <td class="r">{{units .Units}} <span class="muted s">of {{units .Held}}</span></td>
+      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}{{if ne .Currency "AUD"}}<div class="muted s">@ {{printf "%.4f" .FX}}</div>{{end}}</td>
+      <td class="r">{{money .GrossAUD}}</td><td class="r">{{money .Fees}}</td>
+      <td class="r">{{units .Remaining}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Which parcels you sell matters</h2><span class="muted s">same sale, three ways to match it to what you bought</span></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Method</th><th class="r">Gain / (loss)</th><th class="r">After discount</th><th class="r">Net capital gain {{.FY}}</th><th class="r">Est. tax</th><th class="r">After-tax proceeds</th></tr></thead>
+    <tbody>{{range .Methods}}<tr {{if eq .Method $.Est.Sel.Method}}class="sel-row"{{end}}>
+      <td><b>{{.Label}}</b>{{if eq .Method $.Est.Sel.Method}} <span class="tag">shown below</span>{{end}}{{if .Best}} <span class="pill buy">lowest tax</span>{{end}}</td>
+      <td class="r {{cls .Gain}}">{{signed .Gain}}</td><td class="r">{{signed .DiscountedGain}}</td>
+      <td class="r">{{signed .NetCapGainDelta}}</td>
+      <td class="r"><b>{{signed .TaxDelta}}</b></td><td class="r">{{money .AfterTax}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  <p class="muted s">{{if .MethodsDiffer}}You can choose which parcels you're selling only if you identify them in writing at the time of sale (check your broker lets you); otherwise the ATO assumes first in, first out.{{else}}All methods give the same result here, so the choice doesn't matter for this sale.{{end}}</p>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Parcels sold — {{.Sel.Label}}</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Holding</th><th>Acquired</th><th class="r">Units</th><th class="r">Cost base</th><th class="r">Proceeds</th><th class="r">Gain / (loss)</th><th>12m+</th></tr></thead>
+    <tbody>{{range .Sel.Events}}<tr>
+      <td><b>{{short .Symbol}}</b></td>
+      <td>{{.Acquired}} <span class="muted s">({{.Days}}d)</span></td>
+      <td class="r">{{units .Units}}</td><td class="r">{{money .Cost}}</td><td class="r">{{money .Proceeds}}</td>
+      <td class="r {{cls .Gain}}">{{signed .Gain}}</td>
+      <td>{{if .Discount}}<span class="pill buy">50% off</span>{{else if gt .Gain 0.0}}<span class="muted s">full rate</span>{{else}}<span class="muted s">loss</span>{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>Effect on your {{.FY}} tax</h2><a class="link" href="/tax?fy={{.FY}}">Full {{.FY}} tax position →</a></div>
+  <div class="scroll"><table>
+    <thead><tr><th></th><th class="r">Without this sale</th><th class="r">With this sale</th></tr></thead>
+    <tbody>
+      <tr><td>Net capital gain</td><td class="r">{{money .Base.NetCapGain}}</td><td class="r">{{money .Scen.NetCapGain}}</td></tr>
+      <tr><td>Assessable investment income</td><td class="r">{{money .Base.Assessable}}</td><td class="r">{{money .Scen.Assessable}}</td></tr>
+      <tr><td>Net capital losses carried forward</td><td class="r">{{money .Base.LossCarriedFwd}}</td><td class="r">{{money .Scen.LossCarriedFwd}}</td></tr>
+      <tr><td>Estimated net tax on investments <span class="muted s">(after franking offsets)</span></td><td class="r">{{money .Base.NetPayable}}</td><td class="r"><b>{{money .Scen.NetPayable}}</b></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted s">Taken over your other taxable income of ${{money0 .Scen.OtherIncome}} (set on the <a class="link" href="/tax">Tax page</a>). If that's $0 the estimate will be low — update it first.</p>
+</section>
+{{end}}
+
+<section class="card note">
+  <h2>About this estimate</h2>
+  <ul>
+    <li>Sale price defaults to the latest price (US holdings are converted at today's AUD rate; override either). A future date uses today's prices.</li>
+    <li>The 50% discount applies to parcels owned more than 12 months. Capital losses (including ones carried forward from earlier years) are applied to full-rate gains first, then to discount gains.</li>
+    <li>Not tax advice. See the <a class="link" href="/tax">Tax page</a> for what's modelled — including the proposed 2027 change to the CGT discount that isn't reflected here.</li>
+  </ul>
+</section>
+{{end}}
+
+<script>
+(function(){
+  var rows=document.getElementById('sale-rows'); if(!rows) return;
+  function sync(row){
+    var s=row.querySelector('.sym'), o=s.options[s.selectedIndex]; if(!o) return;
+    row.querySelector('.px').placeholder='current '+o.dataset.price;
+    row.querySelector('.ccy').textContent='('+o.dataset.ccy+')';
+  }
+  function wire(row){
+    row.querySelector('.sym').addEventListener('change',function(){sync(row)});
+    row.querySelector('.rm').addEventListener('click',function(){ if(rows.children.length>1) row.remove(); });
+    sync(row);
+  }
+  Array.prototype.forEach.call(rows.children,wire);
+  document.getElementById('add-row').addEventListener('click',function(){
+    var c=rows.firstElementChild.cloneNode(true);
+    c.querySelectorAll('input').forEach(function(i){i.value=''});
+    rows.appendChild(c); wire(c);
+  });
+})();
+</script>
+{{end}}

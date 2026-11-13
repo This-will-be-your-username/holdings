@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 	a := &App{store: store, pages: map[string]*template.Template{}}
-	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions"} {
+	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator"} {
 		a.pages[p] = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/base.html", "web/"+p+".html"))
 	}
 

@@ -10,6 +10,7 @@ import (
 
 func (a *App) registerTax(mux *http.ServeMux) {
 	mux.HandleFunc("GET /tax", a.taxPage)
+	mux.HandleFunc("GET /estimator", a.estimatorPage)
 	mux.HandleFunc("POST /settings", a.saveSettings)
 	mux.HandleFunc("GET /distributions", a.distributionsPage)
 	mux.HandleFunc("GET /export/tax-summary.csv", a.taxExport("tax-summary", func(w io.Writer, tr *TaxResult, fy string) error {

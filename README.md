@@ -32,3 +32,12 @@ Run `go test ./...` for the calculation tests.
 - **Exports:** `/export/tax-summary.csv`, `/export/tax-distributions.csv?fy=2025-26`, `/export/tax-cgt.csv?fy=2025-26`.
 - Not modelled: Medicare low-income reduction/surcharge, HELP, deductions, companies/trusts/SMSF/joint holdings,
   and the proposed post-1 July 2027 CGT indexation regime (not law at last check). Estimates only, not tax advice.
+
+## Sell estimator (`/estimator`)
+"What would selling these cost me in tax?" Add hypothetical sales (units, `all`, or a dollar target; optional
+price, brokerage and date) and the app adds them to your real parcels and recomputes that income year, so existing
+gains/losses, carried-forward losses, franking offsets and your other income are all accounted for.
+- Compares FIFO / highest-cost / lowest-taxable-gain parcel matching for the same sale.
+- Shows parcels sold, net proceeds, extra tax and after-tax proceeds, plus before/after for the year.
+- Flags when waiting past the 12-month mark would cut the tax (assuming an unchanged price).
+Shareable via the URL query string. Estimates only, not tax advice.

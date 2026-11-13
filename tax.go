@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -86,6 +87,7 @@ type parcel struct {
 
 type CGTEvent struct {
 	FY, Symbol, Name, Acquired, Sold, Kind string
+	TxnID                                  string // the sell transaction that produced this event
 	Units, Cost, Proceeds, Gain            float64
 	Days                                   int
 	Discount                               bool
@@ -106,7 +108,12 @@ func discountEligible(acq, sold time.Time) bool {
 // cgtEvents replays transactions into tax parcels and returns each disposal
 // (one event per parcel consumed) plus any E4 gains from tax-deferred
 // distributions that exceed the cost base.
-func cgtEvents(rows []Row, method string) []CGTEvent {
+func cgtEvents(rows []Row, method string) []CGTEvent { return cgtEventsM(rows, method, "") }
+
+// cgtEventsM is cgtEvents, but hypothetical sells (IDs starting "est-", used by
+// the sale estimator) can use their own parcel method without changing how
+// your real past sales were matched.
+func cgtEventsM(rows []Row, method, estMethod string) []CGTEvent {
 	parcels := map[string][]*parcel{}
 	var out []CGTEvent
 	for _, r := range rows {
@@ -150,7 +157,11 @@ func cgtEvents(rows []Row, method string) []CGTEvent {
 				ppu = r.GrossAUD / r.Units
 			}
 			order := append([]*parcel(nil), ps...)
-			switch method {
+			m := method
+			if estMethod != "" && strings.HasPrefix(r.ID, "est-") {
+				m = estMethod
+			}
+			switch m {
 			case "hifo":
 				sort.SliceStable(order, func(i, j int) bool { return perUnit(order[i]) > perUnit(order[j]) })
 			case "optimal":
@@ -175,7 +186,7 @@ func cgtEvents(rows []Row, method string) []CGTEvent {
 				cost := p.cost * u / p.units
 				proceeds := ppu * u
 				out = append(out, CGTEvent{
-					FY: fyOf(r.Date), Symbol: r.Symbol, Name: r.Name, Acquired: p.acqS, Sold: r.Date, Kind: "sale",
+					FY: fyOf(r.Date), Symbol: r.Symbol, Name: r.Name, Acquired: p.acqS, Sold: r.Date, Kind: "sale", TxnID: r.ID,
 					Units: u, Cost: cost, Proceeds: proceeds, Gain: proceeds - cost,
 					Days: int(sold.Sub(p.acq).Hours() / 24), Discount: discountEligible(p.acq, sold),
 				})
@@ -313,7 +324,7 @@ func ComputeTax(db *DB, rows []Row, now time.Time) *TaxResult {
 		}
 	}
 
-	tr.All = cgtEvents(rows, set.CGTMethod)
+	tr.All = cgtEventsM(rows, set.CGTMethod, set.EstMethod)
 	for _, e := range tr.All {
 		f := get(e.FY)
 		f.Events = append(f.Events, e)

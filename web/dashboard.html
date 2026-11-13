@@ -42,7 +42,7 @@
     <tbody>
     {{range .R.Holdings}}
     <tr>
-      <td><b>{{short .Symbol}}</b> <span class="tag">{{.Market}}</span><div class="muted s">{{.Name}}{{if .PriceNote}} · <span class="warn" title="{{.PriceNote}}">⚠ {{.PriceNote}}</span>{{end}}</div></td>
+      <td><b>{{short .Symbol}}</b> <span class="tag">{{.Market}}</span><div class="muted s">{{.Name}} · <a class="link s" href="/estimator?sym={{.Symbol}}">estimate a sale</a>{{if .PriceNote}} · <span class="warn" title="{{.PriceNote}}">⚠ {{.PriceNote}}</span>{{end}}</div></td>
       <td class="r">{{units .Units}}</td>
       <td class="r">{{money .AvgCost}}</td>
       <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}<div class="muted s">{{.PriceDate}}</div></td>

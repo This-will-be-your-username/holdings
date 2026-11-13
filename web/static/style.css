@@ -92,3 +92,13 @@ details{margin-top:12px} summary{cursor:pointer;color:var(--muted);font-size:13p
 label.check{flex-direction:row;align-items:center;gap:8px;align-self:end;padding-bottom:8px;color:var(--ink)}
 label.check input{width:auto}
 h3{font-size:14px;margin:18px 0 6px;color:var(--muted)}
+nav{flex-wrap:wrap}
+.sale-row{display:grid;grid-template-columns:2fr 1.1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:12px}
+.sale-row .x{margin-bottom:6px}
+.est-actions{display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-top:4px}
+label.inl{flex-direction:row;align-items:center;gap:8px}
+label.inl input,label.inl select{width:auto}
+.hint{background:color-mix(in srgb,var(--accent) 8%,var(--card));border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.hint p{margin:6px 0 0}
+tr.sel-row{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+@media(max-width:860px){.sale-row{grid-template-columns:1fr 1fr}}
