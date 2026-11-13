@@ -23,6 +23,12 @@ type Instrument struct {
 	Name     string `json:"name"`
 	Currency string `json:"currency"`
 	Market   string `json:"market"`
+
+	// The investor's intention for this holding (see plan.go). All optional.
+	Role        string  `json:"role,omitempty"`         // growth | balanced | defensive | short
+	TargetPct   float64 `json:"target_pct,omitempty"`   // intended share of the portfolio, percent (0 = not set)
+	HorizonYrs  float64 `json:"horizon_yrs,omitempty"`  // intended holding period in years (0 = role default)
+	ExpectedPct float64 `json:"expected_pct,omitempty"` // expected return a year, percent (0 = role default)
 }
 
 // Txn is a single user transaction. Price/Amount are in the instrument's

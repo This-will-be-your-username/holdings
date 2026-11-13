@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -296,5 +297,42 @@ func TestOutlookToleratesZeroPrices(t *testing.T) {
 		}
 		delete(db.Manual["VAN0110AU"], "2025-03-03")
 		delete(db.Prices["VGS.AX"], "2025-03-03")
+	})
+}
+
+func TestSeedDataHasATargetAllocationWorthRebalancing(t *testing.T) {
+	s, _ := seededStore(t)
+	s.View(func(db *DB) {
+		var sum float64
+		for _, in := range db.Instruments {
+			if in.Role == "" || in.TargetPct <= 0 {
+				t.Errorf("%s has no purpose/target", in.Symbol)
+			}
+			sum += in.TargetPct
+		}
+		if math.Abs(sum-100) > 1e-9 {
+			t.Errorf("targets add to %v", sum)
+		}
+		res := Compute(db, seedNow)
+		w := ComputeWeights(db, res)
+		if !w.AnySet {
+			t.Fatal("targets should be in force")
+		}
+		// the managed fund has outgrown its 15% target and VDGR sits under its 25%
+		if van, vdgr := w.Info["VAN0110AU"], w.Info["VDGR.AX"]; van.Cur <= van.Target+0.03 || vdgr.Cur >= vdgr.Target-0.03 {
+			t.Errorf("expected drift: VAN %v vs %v, VDGR %v vs %v", van.Cur, van.Target, vdgr.Cur, vdgr.Target)
+		}
+		// a withdrawal sells the overweight fund and leaves the underweight one alone
+		wr, err := WithdrawalPlans(db, WithdrawOpts{Target: 3000, Brokerage: 9.5}, seedNow)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sold := soldBy(wr.Sel)
+		if sold["VAN0110AU"] == 0 || sold["VDGR.AX"] != 0 {
+			t.Errorf("sold %v", sold)
+		}
+		if wr.Sel.Plan.MaxDriftAfter >= wr.Sel.Plan.MaxDriftBefore {
+			t.Errorf("drift %v -> %v", wr.Sel.Plan.MaxDriftBefore, wr.Sel.Plan.MaxDriftAfter)
+		}
 	})
 }

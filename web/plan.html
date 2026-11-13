@@ -1,0 +1,81 @@
+{{define "content"}}
+<div class="head">
+  <div><h1>Target allocation</h1>
+    <p class="muted">Say what each holding is <em>for</em>. When you need to sell, the planner keeps your portfolio balanced against this mix first, and judges each holding against its own purpose — not against a quick-return yardstick.</p></div>
+</div>
+
+<nav class="tabs" aria-label="Estimator mode">
+  <a href="/estimator">Sell specific holdings</a>
+  <a href="/estimator?mode=raise">Withdraw an amount</a>
+  <a href="/plan" class="on">Target allocation</a>
+</nav>
+
+{{if not .Rows}}
+<div class="card empty"><h2>No open holdings</h2><p>Add some transactions first, then set what each holding is for.</p><a class="btn primary" href="/transactions#add">Add a transaction</a></div>
+{{else}}
+<form method="post" action="/plan" id="plan-form">
+<section class="card">
+  <div class="scroll"><table class="plan-tbl">
+    <thead><tr><th>Holding</th><th class="r">Now</th><th>Purpose</th><th class="r">Target %</th><th class="r">Horizon (years)</th><th class="r">Expected return (% a year)</th><th>Progress so far</th></tr></thead>
+    <tbody>
+    {{range .Rows}}<tr>
+      <td><b>{{short .Symbol}}</b><input type="hidden" name="sym" value="{{.Symbol}}"><div class="muted s">{{.Name}}</div></td>
+      <td class="r">{{money0 .Value}}<div class="muted s" data-cur="{{printf "%.4f" .Cur}}">{{pc .Cur}}</div></td>
+      <td><select name="role_{{.Symbol}}" class="role">
+        <option value="" data-exp="" data-hor="">— not set —</option>
+        {{$cur := .Role}}{{range $.Roles}}<option value="{{.Key}}" data-exp="{{printf "%g" .Expected}}" data-hor="{{printf "%g" .Horizon}}" {{if eq .Key $cur}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select></td>
+      <td class="r"><input class="tgt" name="target_{{.Symbol}}" inputmode="decimal" value="{{pin .Target}}" placeholder="%"></td>
+      <td class="r"><input class="hor" name="horizon_{{.Symbol}}" inputmode="decimal" value="{{if .HorizonSet}}{{printf "%g" .HorizonShown}}{{end}}" placeholder="role default"></td>
+      <td class="r"><input class="exp" name="expected_{{.Symbol}}" inputmode="decimal" value="{{if .ExpectedSet}}{{printf "%g" .ExpectedShown}}{{end}}" placeholder="role default"></td>
+      <td class="s">{{if and .IntentSet .HasXIRR}}Returning <b>{{f1 .XIRR}}%</b> a year vs a {{f1 .Expected}}% goal. {{f1 .Years}} of {{printf "%.0f" .Horizon}} years in, so this counts at <b>{{pc .Conf}}</b> weight.{{else if .IntentSet}}Too early to judge.{{else}}<span class="muted">No purpose set — never judged on performance.</span>{{end}}</td>
+    </tr>{{end}}
+    </tbody>
+  </table></div>
+  <div class="plan-total">
+    <span>Targets add up to <b id="sum" class="ok">0%</b></span>
+    <span class="muted s" id="sumnote"></span>
+    <span class="chips"><button type="button" class="chip" id="fill-cur">Use my current mix</button><button type="button" class="chip" id="fill-eq">Equal weights</button></span>
+  </div>
+  <div class="est-actions"><button class="btn primary">Save target allocation</button></div>
+</section>
+</form>
+
+<section class="card note">
+  <h2>How the planner uses this</h2>
+  <ul>
+    <li><b>Balance first.</b> To raise cash it sells what is overweight against your targets, and protects what is underweight, so you finish as close to your intended mix as possible. Targets that don't add to 100% are scaled; holdings with no target share what's left. With no targets at all, your current mix is the target and a sale is spread in proportion.</li>
+    <li><b>Judged against its purpose.</b> A holding's return is compared with the <em>expected return</em> you've given it (role defaults: growth 8%, balanced 6.5%, defensive 4%, short-term 3%), and that verdict is weighted by how much of its <em>intended horizon</em> has passed. A 10-year growth holding that's two years in counts at 20%, so a slow patch isn't punished; a short-term holding that has had its full horizon counts in full.</li>
+    <li><b>Only a nudge.</b> The verdict shifts a holding's target by at most 10% of itself (1% for each point ahead or behind), so performance can tilt a close call but never override diversification. Holdings with no purpose set are never judged on performance.</li>
+    <li><b>Then tax.</b> Within each holding it sells parcels held over 12 months first, lowest tax first. It only uses a younger parcel if avoiding it would leave you more than 2.5 points further from your target mix.</li>
+  </ul>
+</section>
+
+<script>
+(function(){
+  var form=document.getElementById('plan-form'); if(!form) return;
+  var rows=[].slice.call(form.querySelectorAll('tbody tr'));
+  function sum(){
+    var t=0; rows.forEach(function(r){var v=parseFloat(r.querySelector('.tgt').value); if(v>0) t+=v;});
+    var el=document.getElementById('sum'), note=document.getElementById('sumnote');
+    el.textContent=(Math.round(t*10)/10)+'%';
+    var ok=Math.abs(t-100)<0.5||t===0; el.className=ok?'ok':'bad';
+    note.textContent = t===0 ? 'Nothing set: your current mix is treated as the target.' : (ok ? '' : 'Not 100% — the planner will scale these to 100%.');
+  }
+  rows.forEach(function(r){
+    var sel=r.querySelector('.role');
+    function hint(){var o=sel.options[sel.selectedIndex]; r.querySelector('.exp').placeholder=o.dataset.exp?o.dataset.exp+' (default)':'role default'; r.querySelector('.hor').placeholder=o.dataset.hor?o.dataset.hor+' (default)':'role default';}
+    sel.addEventListener('change',hint); hint();
+    r.querySelector('.tgt').addEventListener('input',sum);
+  });
+  document.getElementById('fill-cur').addEventListener('click',function(){
+    rows.forEach(function(r){var c=parseFloat(r.querySelector('[data-cur]').dataset.cur)*100; r.querySelector('.tgt').value=(Math.round(c*10)/10);}); sum();
+  });
+  document.getElementById('fill-eq').addEventListener('click',function(){
+    var v=Math.round(1000/rows.length)/10; rows.forEach(function(r){r.querySelector('.tgt').value=v}); sum();
+  });
+  sum();
+})();
+</script>
+{{end}}
+{{end}}

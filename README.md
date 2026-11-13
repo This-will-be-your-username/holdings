@@ -59,14 +59,22 @@ Responsive layout: scrollable nav, charts redrawn at the real screen width, tabl
 phones, 16px inputs and 44px touch targets, gzip for small payloads. Static assets are embedded in the binary —
 rebuild after changing anything under `web/`.
 
-## Withdraw an amount (`/estimator?mode=raise`)
-Say how much cash you want out and the planner chooses what to sell:
-1. only parcels held **over 12 months** (50% CGT discount) - others only if those can't cover it, and flagged;
-2. from your **least profitable holding** first (total return so far), so winners stay invested;
-3. within a holding, the parcels with the **lowest taxable gain** (losses first, then highest cost base).
+## Withdraw an amount (`/estimator?mode=raise`) and target allocation (`/plan`)
+Say how much cash you want out and the planner chooses what to sell, in this order of priority:
+1. **Diversification.** Set what each holding is for on the **Target allocation** page (role, target % of the
+   portfolio, intended horizon, expected return). The planner sells what is *overweight* and protects what is
+   underweight, finishing as close to your target mix as it can (a least-squares rebalance solved exactly).
+   With no targets set, your current mix is the target, so a sale is spread roughly in proportion.
+2. **Performance judged against intent.** Each holding's return is compared with *its own* expected return, and
+   that verdict is weighted by how much of its intended horizon has passed (a 10-year growth holding two years in
+   counts at 20%; a short-term holding past its horizon counts in full). It only nudges the target, by at most
+   10% of itself, so it can tip a close call but never override balance. Holdings with no purpose set are never
+   judged on performance.
+3. **Tax.** Within each holding: parcels held over 12 months first (50% CGT discount), lowest taxable gain first.
+   A parcel under 12 months old is used only if avoiding it would leave you more than 2.5 points further from target.
 Options: brokerage per holding, sale date, "after tax" (the amount is cash in hand after estimated CGT), restrict to
-chosen holdings, and an alternative **lowest tax overall** strategy shown for comparison. Listed securities are
-sold in whole units, so the total can be slightly over. Each parcel shows why it was chosen.
+chosen holdings. A **lowest tax overall** plan is shown for comparison, with how far it leaves you from your target.
+Listed securities sell in whole units, so the total can be slightly over. Each parcel shows why it was chosen.
 
 ## Importing broker / fund-manager CSVs
 Upload any export (or paste CSV text) on the Transactions page. The importer needs no template:
@@ -110,3 +118,6 @@ What's in it (about 130 transactions over ~3 years, deterministic apart from dat
   suggestions appear. Price refresh is disabled (nothing is fetched in test mode).
 The banner offers **Reset test data** (regenerate), a **sample broker CSV** and a **sample fund statement**, built from
 the test data so you can try the importer's duplicate handling (already recorded / possible duplicate / new / skipped).
+
+Test mode also seeds a target allocation (VGS 30%, VDHG 30%, VDGR 25%, VAN0110AU 15%) that deliberately differs
+from the current mix, so a withdrawal has something to rebalance.

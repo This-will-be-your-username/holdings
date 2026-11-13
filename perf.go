@@ -128,6 +128,7 @@ type Row struct {
 
 type Holding struct {
 	Symbol, Name, Market, Currency string
+	YearsHeld                      float64 // years since the first purchase
 	Units, CostAUD, AvgCost        float64
 	Price                          float64
 	PriceDate                      string
@@ -338,6 +339,9 @@ func Compute(db *DB, now time.Time) *Result {
 		}
 		if h.Invested > 0 {
 			h.ReturnPct = h.TotalReturn / h.Invested * 100
+		}
+		if len(h.flows) > 0 {
+			h.YearsHeld = nowT.Sub(h.flows[0].T).Hours() / 24 / 365.25
 		}
 		fl := append([]Flow(nil), h.flows...)
 		if h.Units > 0 {

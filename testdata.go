@@ -43,6 +43,18 @@ var testFunds = []testFund{
 	{"VAN0110AU", "Vanguard Managed Fund (APIR VAN0110AU)", MarketManaged, 0.40, 0.20, 0.0010, 1.62, 0.0070, 0.25, 0.03, 0.05, 0.0, false, 0},
 }
 
+// testIntent is what the simulated investor intends for each holding. The targets are deliberately not
+// the current mix (the managed fund has grown overweight, VDGR is underweight) so rebalancing has work to do.
+var testIntent = map[string]struct {
+	role                      string
+	target, horizon, expected float64
+}{
+	"VGS.AX":    {"growth", 30, 15, 8.5},
+	"VDHG.AX":   {"growth", 30, 10, 8},
+	"VDGR.AX":   {"balanced", 25, 7, 6.5},
+	"VAN0110AU": {"balanced", 15, 7, 6.5},
+}
+
 func rd(v float64, dp int) float64 { p := math.Pow(10, float64(dp)); return math.Round(v*p) / p }
 
 // business days ending at end, ascending
@@ -313,6 +325,10 @@ func SeedTestData(s *Store, now time.Time) error {
 
 		for _, f := range testFunds {
 			db.Instruments[f.sym] = &Instrument{Symbol: f.sym, Name: f.name, Currency: "AUD", Market: f.market}
+			if in, ok := testIntent[f.sym]; ok {
+				inst := db.Instruments[f.sym]
+				inst.Role, inst.TargetPct, inst.HorizonYrs, inst.ExpectedPct = in.role, in.target, in.horizon, in.expected
+			}
 		}
 		for _, f := range testFunds {
 			if f.market == MarketManaged {

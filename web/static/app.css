@@ -187,3 +187,10 @@ details.more-cols summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 @media (min-width:721px){.bar{gap:24px} .brandrow{flex:none}}
 @media (max-width:720px){.brandrow{padding-bottom:4px} .testacts{margin-left:0;width:100%}}
 body.is-test .top{border-bottom:2px solid var(--warn)}
+
+/* ===== target allocation ===== */
+.plan-tbl select{width:100%;min-width:170px}
+.plan-tbl input{width:96px}
+.plan-total{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.plan-total b.bad{color:var(--neg)} .plan-total b.ok{color:var(--pos)}
+@media (max-width:720px){.plan-tbl select,.plan-tbl input{width:100%;min-width:0}}

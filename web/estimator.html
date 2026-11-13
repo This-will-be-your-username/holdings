@@ -120,7 +120,7 @@
       <label>Sale date <input type="date" name="date" value="{{.Date}}"></label>
       <label>How to choose
         <select name="strategy">
-          <option value="least" {{sel .Strategy "least"}}>Least profitable holdings first, lowest-tax parcels</option>
+          <option value="balance" {{sel .Strategy "balance"}}>Keep my portfolio balanced (recommended)</option>
           <option value="tax" {{sel .Strategy "tax"}}>Lowest tax overall</option>
         </select></label>
       <label class="check wide"><input type="checkbox" name="after_tax" value="1" {{if .AfterTax}}checked{{end}}> The amount is what I want in my pocket <b>after</b> estimated capital gains tax</label>
@@ -130,14 +130,15 @@
     </fieldset>
     <div class="est-actions"><button class="btn primary">Plan my withdrawal</button></div>
   </form>
-  <p class="muted s">The planner uses parcels held over 12 months first (50% CGT discount), starting with your least profitable holding, and within each holding sells the parcels that cost the least tax. Listed securities are sold in whole units, so the total can be a little over.</p>
+  <p class="muted s">The planner puts <b>balance first</b>: it sells what is overweight against your <a class="link" href="/plan">target allocation</a> so you end up as close to your intended mix as possible. It then nudges each target by how that holding is doing against <em>its own purpose</em> — a long-term holding that is only part-way through its horizon is barely marked down. Within each holding it uses parcels held over 12 months first (50% CGT discount), lowest tax first. Listed securities are sold in whole units, so the total can be a little over.</p>
 </section>
 
 {{with .Raise}}{{$sel := .Sel}}
 {{range .Notes}}<div class="flash warnnote">{{.}}</div>{{end}}
 <section class="card hint">
   <h2>To {{if .Opts.AfterTax}}end up with{{else}}raise{{end}} ${{money0 .Opts.Target}}{{if .Opts.AfterTax}} after tax{{end}}, sell {{$sel.HoldingsHit}} holding{{if ne $sel.HoldingsHit 1}}s{{end}}</h2>
-  <p>This plan brings in <b>${{money $sel.Raised}}</b> after brokerage and leaves <b>${{money $sel.AfterTax}}</b> once an estimated <b>${{money $sel.Tax}}</b> of capital gains tax is set aside.</p>
+  <p>This plan brings in <b>${{money $sel.Raised}}</b> after brokerage and leaves <b>${{money $sel.AfterTax}}</b> once an estimated <b>${{money $sel.Tax}}</b> of capital gains tax is set aside. {{if $sel.Plan.Alloc}}The largest gap from your target mix goes from <b>{{f1 $sel.Plan.MaxDriftBefore}}</b> to <b>{{f1 $sel.Plan.MaxDriftAfter}}</b> percentage points.{{end}}</p>
+  {{if $sel.Plan.NoTargets}}<p class="muted s">No target allocation is set, so your current mix is treated as the target. <a class="link" href="/plan">Set your target mix →</a></p>{{end}}
 </section>
 {{template "estTiles" $sel.Est}}
 {{template "estLines" $sel.Est}}
@@ -160,26 +161,31 @@
 <section class="card">
   <div class="card-h"><h2>Compared with the other way of choosing</h2></div>
   <div class="scroll"><table>
-    <thead><tr><th>Approach</th><th class="r">Holdings sold</th><th class="r">Net raised</th><th class="r">Est. tax</th><th class="r">After tax</th></tr></thead>
+    <thead><tr><th>Approach</th><th class="r">Holdings sold</th><th class="r">Net raised</th><th class="r">Est. tax</th><th class="r">After tax</th><th class="r">Furthest from target after</th></tr></thead>
     <tbody>{{range .Plans}}<tr {{if .Selected}}class="sel-row"{{end}}>
-      <td><b>{{.Label}}</b>{{if .Selected}} <span class="tag">chosen</span>{{end}}{{if .Best}} <span class="pill buy">lowest tax</span>{{end}}</td>
+      <td><b>{{.Label}}</b>{{if .Selected}} <span class="tag">chosen</span>{{end}}{{if .Best}} <span class="pill sell">lowest tax</span>{{end}}{{if .MostBalanced}} <span class="pill buy">most balanced</span>{{end}}</td>
       <td class="r">{{.HoldingsHit}}</td><td class="r">{{money .Raised}}</td><td class="r"><b>{{signed .Tax}}</b></td><td class="r">{{money .AfterTax}}</td>
+      <td class="r">{{f1 .Plan.MaxDriftAfter}} pts</td>
     </tr>{{end}}</tbody>
   </table></div>
-  <p class="muted s">"Least profitable first" leaves your best performers invested; "lowest tax overall" may sell winners if that costs less tax. The first is usually the better investment decision, the second the better tax one.</p>
+  <p class="muted s">"Keep my portfolio balanced" sells what is overweight against your target mix; "lowest tax overall" sells whatever costs least tax even if that leaves you lopsided. The first is usually the better investment decision, the second the better tax one — the gap in the last column is what that tax saving costs you in balance.</p>
 </section>
 
 <section class="card">
-  <div class="card-h"><h2>Your holdings, least profitable first</h2></div>
+  <div class="card-h"><h2>Balance &amp; purpose</h2><a class="link" href="/plan">Edit target allocation →</a></div>
   <div class="scroll"><table>
-    <thead><tr><th>Holding</th><th class="r">Return so far</th><th class="r">Value</th><th class="r">Held over 12 months</th><th class="r">Planned sale</th></tr></thead>
-    <tbody>{{range $sel.Plan.Ranking}}<tr {{if .Excluded}}class="muted"{{end}}>
-      <td><b>{{short .Symbol}}</b>{{if .Excluded}} <span class="tag">not selected</span>{{else if .Order}} <span class="tag">#{{.Order}}</span>{{end}}<div class="muted s">{{.Name}}</div></td>
-      <td class="r {{cls .ReturnPct}}">{{pctn .ReturnPct}}</td><td class="r">{{money .Value}}</td>
-      <td class="r">{{money .EligibleV}} <span class="muted s">({{.EligibleParcels}} of {{.Parcels}} parcels)</span></td>
-      <td class="r">{{if .Taken}}<b>{{money .Taken}}</b>{{else}}—{{end}}</td>
+    <thead><tr><th>Holding</th><th class="r">Now</th><th class="r">Target</th><th class="r">After sale</th><th class="r">Off target after</th><th>How it's doing vs its purpose</th><th class="r">Planned sale</th></tr></thead>
+    <tbody>{{range $sel.Plan.Alloc}}<tr {{if .Excluded}}class="muted"{{end}}>
+      <td><b>{{short .Symbol}}</b>{{if .Excluded}} <span class="tag">not selected</span>{{end}}{{if .RoleLabel}} <span class="tag">{{.RoleLabel}}</span>{{end}}<div class="muted s">{{.Name}}</div></td>
+      <td class="r">{{pc .Cur}}<div class="muted s">{{if gt .DriftBefore 0.05}}<span class="warn">{{pp .DriftBefore}} over</span>{{else if lt .DriftBefore -0.05}}{{pp .DriftBefore}} under{{else}}on target{{end}}</div></td>
+      <td class="r">{{pc .Eff}}{{if ne (pc .Eff) (pc .Target)}}<div class="muted s">set {{pc .Target}}</div>{{end}}</td>
+      <td class="r"><b>{{pc .After}}</b></td>
+      <td class="r {{if gt .DriftAfter 2.5}}neg{{else if lt .DriftAfter -2.5}}neg{{end}}">{{pp .DriftAfter}}</td>
+      <td class="s">{{if and .IntentSet .HasXIRR}}Returning <b>{{f1 .XIRR}}%</b> a year against a {{f1 .Expected}}% goal. {{f1 .Years}} of {{printf "%.0f" .Horizon}} years in, so it counts at <b>{{pc .Conf}}</b> weight{{if ne .Tilt 0.0}} (target nudged {{pc .Tilt}}){{end}}.{{else if .IntentSet}}Too early to judge.{{else}}<span class="muted">No purpose set — not judged on performance.</span>{{end}}</td>
+      <td class="r">{{if .Sell}}<b>{{money .Sell}}</b>{{else}}—{{end}}</td>
     </tr>{{end}}</tbody>
   </table></div>
+  <p class="muted s">Weights are shares of your whole portfolio. A holding's target is nudged by at most 10% of itself by how it's doing against its own purpose, and only in proportion to how much of its intended horizon has passed — so a long-term holding in a quiet patch is not punished.</p>
 </section>
 {{template "estEffect" $sel.Est}}
 {{end}}
@@ -194,6 +200,7 @@
 <nav class="tabs" aria-label="Estimator mode">
   <a href="/estimator" class="{{if ne .Mode "raise"}}on{{end}}">Sell specific holdings</a>
   <a href="/estimator?mode=raise" class="{{if eq .Mode "raise"}}on{{end}}">Withdraw an amount</a>
+  <a href="/plan">Target allocation</a>
 </nav>
 
 {{if not .Holdings}}

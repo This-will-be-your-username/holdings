@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +34,7 @@ func main() {
 	if err := a.initModes(dataFile); err != nil {
 		log.Fatal(err)
 	}
-	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import"} {
+	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan"} {
 		a.pages[p] = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/base.html", "web/"+p+".html"))
 	}
 
@@ -355,7 +356,20 @@ var funcs = template.FuncMap{
 	},
 	"short": func(s string) string { return strings.TrimSuffix(s, ".AX") },
 	"abs":   math.Abs,
-	"sub":   func(a, b float64) float64 { return a - b },
+	"pc":    func(v float64) string { return fmt.Sprintf("%.1f%%", v*100) },
+	"pp": func(v float64) string { // signed percentage points
+		if v > 0.05 {
+			return fmt.Sprintf("+%.1f pts", v)
+		}
+		return fmt.Sprintf("%.1f pts", v)
+	},
+	"pin": func(v float64) string { // a fraction shown as a plain percent for an input box
+		if v <= 0 {
+			return ""
+		}
+		return strconv.FormatFloat(math.Round(v*1000)/10, 'f', -1, 64)
+	},
+	"sub": func(a, b float64) float64 { return a - b },
 	"pcg": func(v, base float64) float64 { // % change of v over base
 		if base == 0 {
 			return 0

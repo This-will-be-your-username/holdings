@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -13,7 +14,13 @@ func addInst(db *DB, sym string, price float64) {
 	db.Prices[sym] = map[string]float64{"2026-11-13": price}
 }
 
-// A: big winner. B: moderate winner. C: loss-making, with a young parcel.
+func setTargets(db *DB, t map[string]float64) {
+	for sym, pct := range t {
+		db.Instruments[sym].TargetPct = pct
+	}
+}
+
+// A: 5000, B: 4000, C: 2500 (C has a young parcel and is loss-making). Weights 43.5 / 34.8 / 21.7.
 func withdrawDB() *DB {
 	db := newTestDB()
 	db.Settings.OtherIncome = 100000 // 32% marginal incl. Medicare
@@ -39,63 +46,202 @@ func picksOf(pe *PlanEval) []string {
 	return out
 }
 
-func TestWithdrawTakesFromLeastProfitableEligibleParcelFirst(t *testing.T) {
-	db := withdrawDB()
-	res, err := WithdrawalPlans(db, WithdrawOpts{Target: 500, Strategy: "least"}, wNow)
-	if err != nil {
-		t.Fatal(err)
+func soldBy(pe *PlanEval) map[string]float64 {
+	m := map[string]float64{}
+	for _, pk := range pe.Plan.Picks {
+		m[pk.Symbol] += pk.Units * pk.PricePU
 	}
-	pe := res.Sel
-	// C is the least profitable holding; its biggest-loss eligible parcel (cost 14) goes first, 500/10 = 50 units
-	if got := strings.Join(picksOf(pe), ","); got != "C#0x50" {
-		t.Fatalf("picks %s", got)
-	}
-	if !near(pe.Raised, 500) || !near(pe.Est.Sel.Gain, -200) || pe.Tax > 0.005 {
-		t.Errorf("raised %v gain %v tax %v", pe.Raised, pe.Est.Sel.Gain, pe.Tax)
-	}
-	if pe.Plan.UsedIneligible {
-		t.Error("no need for under-12-month parcels")
-	}
-	if len(pe.Rows) != 1 || pe.Rows[0].Reason == "" || !strings.Contains(pe.Rows[0].Reason, "least profitable") || !strings.Contains(pe.Rows[0].Reason, "loss") {
-		t.Errorf("reason: %+v", pe.Rows)
-	}
+	return m
 }
 
-func TestWithdrawMovesToNextHoldingAndSkipsYoungParcels(t *testing.T) {
-	res, err := WithdrawalPlans(withdrawDB(), WithdrawOpts{Target: 2600, Strategy: "least"}, wNow)
-	if err != nil {
-		t.Fatal(err)
+// ---------- the balancing solver ----------
+
+func TestSolveSellsRebalancesTowardTarget(t *testing.T) {
+	v := []float64{5000, 4000, 2500}
+	tg := []float64{.40, .30, .30}
+	caps := []float64{5000, 4000, 2500}
+	s, ok := solveSells(v, tg, caps, 1000)
+	if !ok {
+		t.Fatal("feasible")
 	}
-	pe := res.Sel
-	// C's two eligible parcels (2,000) then B (next least profitable): its lowest-gain parcel (cost 18) for the remaining 600
-	if got := strings.Join(picksOf(pe), ","); got != "C#0x100,C#1x100,B#0x30" {
-		t.Fatalf("picks %s", got)
-	}
-	if pe.Plan.UsedIneligible {
-		t.Error("eligible parcels covered it")
-	}
-	for _, p := range pe.Plan.Picks {
-		if !p.Eligible {
-			t.Errorf("under-12-month parcel used: %+v", p)
+	var sum float64
+	for _, x := range s {
+		sum += x
+		if x < -1e-9 {
+			t.Errorf("negative sale %v", s)
 		}
 	}
-	// ranking: C, B, A with order numbers
-	r := pe.Plan.Ranking
-	if r[0].Symbol != "C.AX" || r[1].Symbol != "B.AX" || r[2].Symbol != "A.AX" || r[0].Order != 1 || r[2].Order != 3 {
-		t.Errorf("ranking %+v", r)
+	if math.Abs(sum-1000) > 1e-6 {
+		t.Errorf("sold %v", sum)
 	}
-	if !near(r[0].Taken, 2000) || !near(r[1].Taken, 600) || r[2].Taken != 0 {
-		t.Errorf("taken %+v", r)
+	// the underweight third holding is untouched; the two overweight ones are sold down (475 / 525 by hand)
+	if s[2] != 0 || math.Abs(s[0]-475) > 0.01 || math.Abs(s[1]-525) > 0.01 {
+		t.Errorf("sells %v", s)
 	}
-	// B's parcel: gain 2/unit * 30 = 60, discounted to 30, at 32% = 9.60; C's losses (-500-... ) offset it
-	if pe.Est.Sel.Gain >= 60 {
-		t.Errorf("gain %v should include C's losses", pe.Est.Sel.Gain)
+	if maxDrift(v, tg, s) >= maxDrift(v, tg, []float64{0, 0, 0}) {
+		t.Error("selling should reduce the drift")
 	}
 }
 
-func TestWithdrawFallsBackToYoungParcelsAndSaysSo(t *testing.T) {
+func TestSolveSellsProRataWhenAlreadyOnTarget(t *testing.T) {
+	s, _ := solveSells([]float64{500, 300, 200}, []float64{.5, .3, .2}, []float64{500, 300, 200}, 100)
+	if math.Abs(s[0]-50) > 1e-6 || math.Abs(s[1]-30) > 1e-6 || math.Abs(s[2]-20) > 1e-6 {
+		t.Errorf("%v", s)
+	}
+}
+
+func TestSolveSellsRespectsCapsAndInfeasible(t *testing.T) {
+	v := []float64{5000, 4000, 2500}
+	tg := []float64{.40, .30, .30}
+	s, ok := solveSells(v, tg, []float64{300, 4000, 2500}, 1000)
+	if !ok || s[0] > 300+1e-9 {
+		t.Fatalf("cap ignored: %v", s)
+	}
+	if sum := s[0] + s[1] + s[2]; math.Abs(sum-1000) > 1e-6 {
+		t.Errorf("sum %v", sum)
+	}
+	if _, ok := solveSells(v, tg, []float64{100, 100, 100}, 1000); ok {
+		t.Error("should be infeasible")
+	}
+	if s, ok := solveSells(v, tg, []float64{1, 1, 1}, 0); !ok || s[0]+s[1]+s[2] != 0 {
+		t.Error("zero amount")
+	}
+}
+
+// ---------- the planner ----------
+
+func TestBalancePlanSellsOverweightAndProtectsUnderweight(t *testing.T) {
 	db := withdrawDB()
-	res, err := WithdrawalPlans(db, WithdrawOpts{Target: 2300, Strategy: "least", Only: map[string]bool{"C.AX": true}}, wNow)
+	setTargets(db, map[string]float64{"A.AX": 40, "B.AX": 30, "C.AX": 30})
+	res, err := WithdrawalPlans(db, WithdrawOpts{Target: 1000}, wNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pe := res.Sel
+	if pe.Key != "balance" {
+		t.Fatalf("default strategy %s", pe.Key)
+	}
+	sold := soldBy(pe)
+	if sold["C.AX"] != 0 {
+		t.Errorf("C is underweight (21.7%% vs 30%%) and must not be sold: %v", sold)
+	}
+	if sold["A.AX"] == 0 || sold["B.AX"] == 0 {
+		t.Errorf("A and B are overweight: %v", sold)
+	}
+	// 475 / 525 by hand -> whole units: A 10 x 50, B 27 x 20
+	if got := strings.Join(picksOf(pe), ","); got != "A#0x10,B#0x27" {
+		t.Errorf("picks %s", got)
+	}
+	if pe.Raised < 1000 || pe.Raised > 1000+50 {
+		t.Errorf("raised %v", pe.Raised)
+	}
+	if pe.Plan.MaxDriftAfter >= pe.Plan.MaxDriftBefore {
+		t.Errorf("drift %v -> %v", pe.Plan.MaxDriftBefore, pe.Plan.MaxDriftAfter)
+	}
+	for _, p := range pe.Plan.Picks {
+		if !p.Eligible || !strings.Contains(p.Reason, "Overweight") {
+			t.Errorf("pick %+v", p)
+		}
+	}
+	// allocation table accounts for everything
+	var afterSum float64
+	for _, a := range pe.Plan.Alloc {
+		afterSum += a.After
+	}
+	if len(pe.Plan.Alloc) != 3 || math.Abs(afterSum-1) > 1e-6 {
+		t.Errorf("alloc %+v sum %v", pe.Plan.Alloc, afterSum)
+	}
+}
+
+func TestNoTargetsMeansProRataAndSaysSo(t *testing.T) {
+	res, err := WithdrawalPlans(withdrawDB(), WithdrawOpts{Target: 1000}, wNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sold := soldBy(res.Sel)
+	// roughly in proportion to 5000 : 4000 : 2500 (within a unit's rounding)
+	for sym, want := range map[string]float64{"A.AX": 435, "B.AX": 348, "C.AX": 217} {
+		if math.Abs(sold[sym]-want) > 60 {
+			t.Errorf("%s sold %v, want about %v (all %v)", sym, sold[sym], want, sold)
+		}
+	}
+	found := false
+	for _, n := range res.Notes {
+		if strings.Contains(n, "haven't set a target") {
+			found = true
+		}
+	}
+	if !found || !res.Sel.Plan.NoTargets {
+		t.Errorf("notes %v", res.Notes)
+	}
+}
+
+func TestPartialTargetsAndNormalisation(t *testing.T) {
+	db := withdrawDB()
+	setTargets(db, map[string]float64{"A.AX": 40, "B.AX": 30}) // C unset takes the rest
+	w := ComputeWeights(db, Compute(db, wNow))
+	if !w.AnySet || math.Abs(w.Info["C.AX"].Target-0.30) > 1e-9 || math.Abs(w.Info["A.AX"].Target-0.40) > 1e-9 {
+		t.Errorf("targets %+v %+v", w.Info["A.AX"], w.Info["C.AX"])
+	}
+	setTargets(db, map[string]float64{"A.AX": 70, "B.AX": 60}) // over 100: scaled, C gets nothing
+	w = ComputeWeights(db, Compute(db, wNow))
+	var sum float64
+	for _, hi := range w.Info {
+		sum += hi.Target
+	}
+	if math.Abs(sum-1) > 1e-9 || w.Info["C.AX"].Target != 0 || math.Abs(w.Info["A.AX"].Target-70.0/130) > 1e-9 {
+		t.Errorf("over-allocated: %+v sum %v", w.Info, sum)
+	}
+	if math.Abs(w.SumSet-130) > 1e-9 {
+		t.Errorf("sum set %v", w.SumSet)
+	}
+	// nothing set: the current mix is the target
+	db2 := withdrawDB()
+	w = ComputeWeights(db2, Compute(db2, wNow))
+	if w.AnySet || math.Abs(w.Info["A.AX"].Target-w.Info["A.AX"].Cur) > 1e-12 {
+		t.Errorf("no targets: %+v", w.Info["A.AX"])
+	}
+}
+
+func TestBalanceBeatsYoungParcelsUnlessItCostsLittle(t *testing.T) {
+	db := withdrawDB()
+	// C is hugely overweight (target 1%) but only $2,000 of it is over 12 months old
+	setTargets(db, map[string]float64{"A.AX": 49, "B.AX": 50, "C.AX": 1})
+	res, err := WithdrawalPlans(db, WithdrawOpts{Target: 3500}, wNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Sel.Plan.UsedIneligible {
+		t.Error("avoiding C's young parcel would leave the portfolio ~5 points off target, more than the tolerance: it should be used")
+	}
+	// the invariant, computed independently
+	base := Compute(db, wNow)
+	w := ComputeWeights(db, base)
+	var v, tg, capAll, capEl []float64
+	_, parcels := cgtReplay(base.Rows, db.Settings.CGTMethod, "", nil)
+	hcs, order, _ := collectCands(base, parcels, WithdrawOpts{}, wNow)
+	for _, sym := range order {
+		v, tg = append(v, w.Info[sym].Value), append(tg, w.Info[sym].Eff)
+		capAll, capEl = append(capAll, hcs[sym].totV), append(capEl, hcs[sym].eligV)
+	}
+	ideal, _ := solveSells(v, tg, capAll, 3500)
+	el, ok := solveSells(v, tg, capEl, 3500)
+	want := !(ok && maxDrift(v, tg, el) <= maxDrift(v, tg, ideal)+driftTolerance)
+	if res.Sel.Plan.UsedIneligible != want {
+		t.Errorf("UsedIneligible=%v, expected %v", res.Sel.Plan.UsedIneligible, want)
+	}
+	// a request the over-12-month parcels cover with little imbalance avoids the young parcel
+	res, err = WithdrawalPlans(db, WithdrawOpts{Target: 2100}, wNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sel.Plan.UsedIneligible {
+		t.Error("a smaller withdrawal should not need young parcels")
+	}
+}
+
+func TestFallsBackToYoungParcelsWhenNothingElseCoversIt(t *testing.T) {
+	res, err := WithdrawalPlans(withdrawDB(), WithdrawOpts{Target: 2300, Only: map[string]bool{"C.AX": true}}, wNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,8 +249,8 @@ func TestWithdrawFallsBackToYoungParcelsAndSaysSo(t *testing.T) {
 	if got := strings.Join(picksOf(pe), ","); got != "C#0x100,C#1x100,C#2x30" {
 		t.Fatalf("picks %s", got)
 	}
-	if !pe.Plan.UsedIneligible || pe.Plan.Picks[2].Eligible {
-		t.Error("should flag the under-12-month parcel")
+	if !pe.Plan.UsedIneligible || pe.Plan.Picks[2].Eligible || !strings.Contains(pe.Plan.Picks[2].Reason, "couldn't cover") {
+		t.Errorf("young parcel not flagged: %+v", pe.Plan.Picks[2])
 	}
 	found := false
 	for _, n := range res.Notes {
@@ -115,21 +261,33 @@ func TestWithdrawFallsBackToYoungParcelsAndSaysSo(t *testing.T) {
 	if !found {
 		t.Errorf("notes: %v", res.Notes)
 	}
-	if !strings.Contains(pe.Plan.Picks[2].Reason, "didn't cover") {
-		t.Errorf("reason: %s", pe.Plan.Picks[2].Reason)
+}
+
+func TestWithinAHoldingLowestTaxParcelsGoFirst(t *testing.T) {
+	// only C is sellable: parcels over 12 months, biggest loss first
+	res, err := WithdrawalPlans(withdrawDB(), WithdrawOpts{Target: 500, Only: map[string]bool{"C.AX": true}}, wNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(picksOf(res.Sel), ","); got != "C#0x50" {
+		t.Fatalf("picks %s", got)
+	}
+	if !near(res.Sel.Est.Sel.Gain, -200) || res.Sel.Tax > 0.005 {
+		t.Errorf("gain %v tax %v", res.Sel.Est.Sel.Gain, res.Sel.Tax)
 	}
 }
 
-func TestWithdrawRoundsUpToWholeUnitsAndCoversBrokerage(t *testing.T) {
+func TestRoundsUpToWholeUnitsAndCoversBrokerage(t *testing.T) {
 	db := withdrawDB()
-	res, err := WithdrawalPlans(db, WithdrawOpts{Target: 505, Strategy: "least", Only: map[string]bool{"C.AX": true}}, wNow)
+	only := map[string]bool{"C.AX": true}
+	res, err := WithdrawalPlans(db, WithdrawOpts{Target: 505, Only: only}, wNow)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := picksOf(res.Sel); len(got) != 1 || got[0] != "C#0x51" || !near(res.Sel.Raised, 510) {
 		t.Errorf("whole units: %v raised %v", got, res.Sel.Raised)
 	}
-	res, err = WithdrawalPlans(db, WithdrawOpts{Target: 500, Brokerage: 10, Strategy: "least", Only: map[string]bool{"C.AX": true}}, wNow)
+	res, err = WithdrawalPlans(db, WithdrawOpts{Target: 500, Brokerage: 10, Only: only}, wNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,66 +296,74 @@ func TestWithdrawRoundsUpToWholeUnitsAndCoversBrokerage(t *testing.T) {
 	}
 }
 
-func TestWithdrawStrategiesDiffer(t *testing.T) {
+func fgDB() *DB {
 	db := newTestDB()
 	db.Settings.OtherIncome = 100000
 	addInst(db, "F.AX", 100)
 	addInst(db, "G.AX", 100)
 	db.Txns = []Txn{
-		{Date: "2023-01-10", Symbol: "F.AX", Type: "buy", Units: 100, Price: 90}, // +11% overall, gain 10/unit
-		{Date: "2023-01-10", Symbol: "G.AX", Type: "buy", Units: 100, Price: 1},  // huge gain...
-		{Date: "2024-01-10", Symbol: "G.AX", Type: "buy", Units: 100, Price: 99}, // ...but this parcel's gain is only 1/unit
+		{Date: "2023-01-10", Symbol: "F.AX", Type: "buy", Units: 100, Price: 99}, // gain 1/unit
+		{Date: "2023-01-10", Symbol: "G.AX", Type: "buy", Units: 100, Price: 1},  // gain 99/unit
 	}
-	least, err := WithdrawalPlans(db, WithdrawOpts{Target: 1000, Strategy: "least"}, wNow)
+	return db
+}
+
+func TestBalanceFirstTaxSecond(t *testing.T) {
+	db := fgDB()
+	setTargets(db, map[string]float64{"F.AX": 70, "G.AX": 30}) // equal values now, so G is the overweight one
+	bal, err := WithdrawalPlans(db, WithdrawOpts{Target: 1000, Strategy: "balance"}, wNow)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(picksOf(least.Sel), ","); got != "F#0x10" {
-		t.Errorf("least-profitable picks %s", got)
+	if got := strings.Join(picksOf(bal.Sel), ","); got != "G#0x10" {
+		t.Errorf("balance picks %s", got)
 	}
 	var tax *PlanEval
-	for _, p := range least.Plans {
+	for _, p := range bal.Plans {
 		if p.Key == "tax" {
 			tax = p
 		}
 	}
-	if tax == nil || strings.Join(picksOf(tax), ",") != "G#1x10" {
-		t.Fatalf("tax strategy should take the cheap G parcel: %+v", tax)
+	if tax == nil || strings.Join(picksOf(tax), ",") != "F#0x10" {
+		t.Fatalf("tax strategy should take the cheap F parcel: %+v", tax)
 	}
-	// F: gain 100, discounted 50, 32% -> 16.00; G: gain 10, discounted 5 -> 1.60
-	if !near(least.Sel.Tax, 16) || !near(tax.Tax, 1.6) {
-		t.Errorf("taxes %v %v", least.Sel.Tax, tax.Tax)
+	// G: gain 990, discounted 495, 32% = 158.40;  F: gain 10 -> 5 -> 1.60
+	if !near(bal.Sel.Tax, 158.4) || !near(tax.Tax, 1.6) {
+		t.Errorf("taxes %v %v", bal.Sel.Tax, tax.Tax)
 	}
-	if !tax.Best || least.Sel.Best {
-		t.Error("the lower-tax plan should be flagged best")
+	// ...but the tax plan leaves the portfolio further from target
+	if tax.Plan.MaxDriftAfter <= bal.Sel.Plan.MaxDriftAfter {
+		t.Errorf("drift after: balance %v, tax %v", bal.Sel.Plan.MaxDriftAfter, tax.Plan.MaxDriftAfter)
 	}
-	// choosing "tax" as the primary strategy flips which one is selected
+	if !tax.Best || bal.Sel.Best || !bal.Sel.MostBalanced || tax.MostBalanced {
+		t.Errorf("flags: balance best=%v balanced=%v / tax best=%v balanced=%v", bal.Sel.Best, bal.Sel.MostBalanced, tax.Best, tax.MostBalanced)
+	}
+	// choosing tax as the primary strategy flips the selection
 	res, _ := WithdrawalPlans(db, WithdrawOpts{Target: 1000, Strategy: "tax"}, wNow)
 	if res.Sel.Key != "tax" || res.Plans[0].Key != "tax" {
 		t.Errorf("selected %s", res.Sel.Key)
 	}
 }
 
-func TestWithdrawAfterTaxTarget(t *testing.T) {
-	db := newTestDB()
-	db.Settings.OtherIncome = 100000
-	addInst(db, "F.AX", 100)
-	db.Txns = []Txn{{Date: "2023-01-10", Symbol: "F.AX", Type: "buy", Units: 100, Price: 90}}
-	pre, err := WithdrawalPlans(db, WithdrawOpts{Target: 1000, Strategy: "least"}, wNow)
+func TestAfterTaxTarget(t *testing.T) {
+	db := fgDB()
+	delete(db.Instruments, "G.AX")
+	db.Txns = db.Txns[:1]
+	pre, err := WithdrawalPlans(db, WithdrawOpts{Target: 1000}, wNow)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pre.Sel.AfterTax >= 1000 { // 10 units, tax 16 -> 984 in hand
+	if pre.Sel.AfterTax >= 1000 { // 10 units, gain 10/unit... tax 1.6; after tax slightly under 1000
 		t.Fatalf("before-tax plan should leave less than 1000 after tax: %v", pre.Sel.AfterTax)
 	}
-	post, err := WithdrawalPlans(db, WithdrawOpts{Target: 1000, AfterTax: true, Strategy: "least"}, wNow)
+	post, err := WithdrawalPlans(db, WithdrawOpts{Target: 1000, AfterTax: true}, wNow)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if post.Sel.AfterTax < 1000 || post.Sel.Raised <= pre.Sel.Raised {
+	if post.Sel.AfterTax < 1000 || post.Sel.Raised < pre.Sel.Raised {
 		t.Errorf("after-tax: raised %v, after tax %v", post.Sel.Raised, post.Sel.AfterTax)
 	}
-	if post.Sel.AfterTax > 1000+100+1 { // overshoot is bounded by one whole unit
+	if post.Sel.AfterTax > 1000+100+1 {
 		t.Errorf("overshoot too large: %v", post.Sel.AfterTax)
 	}
 }
@@ -207,8 +373,10 @@ func TestWithdrawErrors(t *testing.T) {
 	if _, err := WithdrawalPlans(db, WithdrawOpts{Target: 0}, wNow); err == nil {
 		t.Error("zero amount")
 	}
-	if _, err := WithdrawalPlans(db, WithdrawOpts{Target: 1e9}, wNow); err == nil || !strings.Contains(err.Error(), "can only raise") {
-		t.Errorf("too much: %v", err)
+	for _, st := range []string{"balance", "tax"} {
+		if _, err := WithdrawalPlans(db, WithdrawOpts{Target: 1e9, Strategy: st}, wNow); err == nil || !strings.Contains(err.Error(), "can only raise") {
+			t.Errorf("%s too much: %v", st, err)
+		}
 	}
 	if _, err := WithdrawalPlans(db, WithdrawOpts{Target: 100, Date: "nonsense"}, wNow); err == nil {
 		t.Error("bad date")
@@ -223,11 +391,12 @@ func TestWithdrawErrors(t *testing.T) {
 
 func TestWithdrawDoesNotAlterRecords(t *testing.T) {
 	db := withdrawDB()
+	setTargets(db, map[string]float64{"A.AX": 40, "B.AX": 30, "C.AX": 30})
 	n := len(db.Txns)
 	if _, err := WithdrawalPlans(db, WithdrawOpts{Target: 2600}, wNow); err != nil {
 		t.Fatal(err)
 	}
-	if len(db.Txns) != n || db.Settings.EstPicks != nil || db.Settings.EstMethod != "" {
+	if len(db.Txns) != n || db.Settings.EstPicks != nil || db.Settings.EstMethod != "" || db.Instruments["A.AX"].TargetPct != 40 {
 		t.Error("planning must not modify the stored data")
 	}
 }
@@ -246,7 +415,6 @@ func TestParcelPicksOverrideMethod(t *testing.T) {
 	if len(ev) != 1 || !near(ev[0].Cost, 180) {
 		t.Errorf("fifo without picks: %+v", ev)
 	}
-	// a pick for fewer units than the sale: the rest follows the method
 	rows[len(rows)-1].Units = 15
 	rows[len(rows)-1].GrossAUD = 300
 	ev, _ = cgtReplay(rows, "fifo", "fifo", map[string][]Pick{"est-0": {{Seq: 1, Units: 10}}})
