@@ -225,3 +225,6 @@ details.newlaw-opts .raise-grid{margin:12px 0 4px;grid-template-columns:repeat(3
 details.fund-more{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
 details.fund-more summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 details.fund-more form{margin-top:10px}
+details.history>summary{cursor:pointer;list-style:revert;padding:2px 0}
+details.history>summary .h2{font-size:17px;font-weight:600;color:var(--text,inherit)}
+details.history[open]>summary{margin-bottom:12px}

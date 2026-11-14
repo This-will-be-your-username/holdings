@@ -4,6 +4,26 @@
   <div class="actions"><a class="btn primary" href="/export/transactions.csv">⬇ Export CSV</a></div>
 </div>
 
+<section class="card" id="import">
+  <div class="card-h"><h2>Import from your broker or fund manager</h2></div>
+  <form method="post" action="/import" enctype="multipart/form-data" class="stack">
+    <div class="inline"><input type="file" name="file" accept=".csv,.xlsx,.txt,text/csv"> <button class="btn primary">Upload &amp; review</button></div>
+    <details><summary>…or paste CSV text</summary><textarea name="paste" rows="5" placeholder="Date,Code,Type,Quantity,Price&#10;02/01/2025,VAS,Buy,50,95.10"></textarea></details>
+  </form>
+  <p class="s">Totals don't match your provider? <a href="/reconcile">Compare with a holdings export</a> to see which holdings are missing units.</p>
+  <p class="muted s">Works with most broker and fund-manager exports (CommSec, SelfWealth, Stake, IBKR, Vanguard statements, and others): it finds the columns, date format and buy/sell wording itself, then shows you what it understood before anything is saved. Every transaction is fingerprinted, so uploading an overlapping file later skips the ones you already have.</p>
+  {{if .Imports}}
+  <h3>Recent imports</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>When</th><th>File</th><th class="r">Added</th><th class="r">Already had</th><th class="r">Held back</th><th class="r">Skipped</th><th></th></tr></thead>
+    <tbody>{{range .Imports}}<tr>
+      <td>{{slice .At 0 10}}</td><td>{{.File}}</td><td class="r">{{.Added}}</td><td class="r">{{.Dupes}}</td><td class="r">{{.Possible}}</td><td class="r">{{.Skipped}}</td>
+      <td class="r"><form method="post" action="/import/undo" onsubmit="return confirm('Remove the {{.Added}} transactions this import added?')"><input type="hidden" name="id" value="{{.ID}}"><button class="x" title="Undo this import">Undo</button></form></td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  {{end}}
+</section>
+
 {{if .Suggest}}
 <section class="card">
   <div class="card-h"><h2>Distributions you may not have recorded</h2></div>
@@ -63,30 +83,9 @@
   </form>
 </section>
 
-
-<section class="card" id="import">
-  <div class="card-h"><h2>Import from your broker or fund manager</h2></div>
-  <form method="post" action="/import" enctype="multipart/form-data" class="stack">
-    <div class="inline"><input type="file" name="file" accept=".csv,.xlsx,.txt,text/csv"> <button class="btn primary">Upload &amp; review</button></div>
-    <details><summary>…or paste CSV text</summary><textarea name="paste" rows="5" placeholder="Date,Code,Type,Quantity,Price&#10;02/01/2025,VAS,Buy,50,95.10"></textarea></details>
-  </form>
-  <p class="s">Totals don't match your provider? <a href="/reconcile">Compare with a holdings export</a> to see which holdings are missing units.</p>
-  <p class="muted s">Works with most broker and fund-manager exports (CommSec, SelfWealth, Stake, IBKR, Vanguard statements, and others): it finds the columns, date format and buy/sell wording itself, then shows you what it understood before anything is saved. Every transaction is fingerprinted, so uploading an overlapping file later skips the ones you already have.</p>
-  {{if .Imports}}
-  <h3>Recent imports</h3>
-  <div class="scroll"><table>
-    <thead><tr><th>When</th><th>File</th><th class="r">Added</th><th class="r">Already had</th><th class="r">Held back</th><th class="r">Skipped</th><th></th></tr></thead>
-    <tbody>{{range .Imports}}<tr>
-      <td>{{slice .At 0 10}}</td><td>{{.File}}</td><td class="r">{{.Added}}</td><td class="r">{{.Dupes}}</td><td class="r">{{.Possible}}</td><td class="r">{{.Skipped}}</td>
-      <td class="r"><form method="post" action="/import/undo" onsubmit="return confirm('Remove the {{.Added}} transactions this import added?')"><input type="hidden" name="id" value="{{.ID}}"><button class="x" title="Undo this import">Undo</button></form></td>
-    </tr>{{end}}</tbody>
-  </table></div>
-  {{end}}
-</section>
-
-<section class="card">
-  <div class="card-h"><h2>History</h2></div>
-  <div class="scroll"><table>
+<section class="card" id="history">
+  <details class="history">
+  <summary><span class="h2">History</span> <span class="muted s">{{len .Rows}} transaction{{if ne (len .Rows) 1}}s{{end}} - duplicates already removed. Click to show.</span></summary>
     <thead><tr><th>Date</th><th>Holding</th><th>Type</th><th class="r">Units</th><th class="r">Price</th><th class="r">Brokerage</th><th class="r">FX</th><th class="r">AUD value</th><th class="r">Realised</th><th></th></tr></thead>
     <tbody>
     {{range .Rows}}<tr>
@@ -103,5 +102,6 @@
     </tr>{{else}}<tr><td colspan="10" class="muted">Nothing recorded yet.</td></tr>{{end}}
     </tbody>
   </table></div>
+  </details>
 </section>
 {{end}}
