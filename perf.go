@@ -176,6 +176,7 @@ var typeOrder = map[string]int{"buy": 0, "drp": 1, "dividend": 2, "sell": 3}
 type posState struct {
 	units, cost, lastPx float64
 	h                   *Holding
+	sawBuy, warnedPre   bool
 }
 
 // Compute replays all transactions and derives personal performance:
@@ -265,6 +266,7 @@ func Compute(db *DB, now time.Time) *Result {
 
 		switch t.Type {
 		case "buy":
+			s.sawBuy = true
 			g := t.Units*t.Price*fx + t.Fees
 			row.GrossAUD, row.CashFlowAUD = g, -g
 			s.units += t.Units
@@ -272,6 +274,10 @@ func Compute(db *DB, now time.Time) *Result {
 			h.Invested += g
 			h.flows = append(h.flows, Flow{when, -g})
 		case "drp":
+			if s.units == 0 && !s.sawBuy && !s.warnedPre {
+				s.warnedPre = true
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s: the first record on %s is a reinvestment, so earlier purchases are probably missing from the import. Units and value may be understated - import the earlier history, or compare with your provider at /reconcile.", inst.Name, t.Date))
+			}
 			a := t.Amount
 			if a <= 0 {
 				a = t.Units * t.Price

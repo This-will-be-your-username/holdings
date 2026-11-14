@@ -160,3 +160,8 @@ hand from the fund page's `portId=` address. Prices are fetched on refresh (at m
 **Fetch from Vanguard now**. Fallback: **Import price history** reads Vanguard's export (`.xlsx` or CSV with
 `Date, Buy, Sell, NAV`, or any date/price table; NAV preferred, then unit price, then sell, then buy). Imported prices
 override fetched ones on the same date. The transaction importer now accepts `.xlsx` files too.
+
+## Reconciling with your provider
+
+If FundTrack's total differs from your provider's, open **/reconcile** (link on the Transactions page) and upload the provider's holdings export (CSV or xlsx). It compares units per holding and shows which are short and by how much. It changes nothing: the usual cause is a transaction export that doesn't go back far enough, so import the earlier history (duplicates are skipped by fingerprint) and compare again. FundTrack also warns on the dashboard when a holding's first record is a reinvestment, which usually means earlier purchases are missing. Cash balances are not tracked.
+

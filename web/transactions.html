@@ -69,6 +69,7 @@
     <div class="inline"><input type="file" name="file" accept=".csv,.xlsx,.txt,text/csv"> <button class="btn primary">Upload &amp; review</button></div>
     <details><summary>…or paste CSV text</summary><textarea name="paste" rows="5" placeholder="Date,Code,Type,Quantity,Price&#10;02/01/2025,VAS,Buy,50,95.10"></textarea></details>
   </form>
+  <p class="s">Totals don't match your provider? <a href="/reconcile">Compare with a holdings export</a> to see which holdings are missing units.</p>
   <p class="muted s">Works with most broker and fund-manager exports (CommSec, SelfWealth, Stake, IBKR, Vanguard statements, and others): it finds the columns, date format and buy/sell wording itself, then shows you what it understood before anything is saved. Every transaction is fingerprinted, so uploading an overlapping file later skips the ones you already have.</p>
   {{if .Imports}}
   <h3>Recent imports</h3>

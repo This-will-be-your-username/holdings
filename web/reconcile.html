@@ -1,0 +1,53 @@
+{{define "content"}}
+<div class="head"><div><h1>Reconcile with your provider</h1>
+<p class="muted">Compare FundTrack's holdings with your provider's own holdings export (for Vanguard: <b>Holdings → Export</b>) to find out why the totals differ. Nothing is changed on this page.</p></div>
+<div class="actions"><a class="btn" href="/transactions">Transactions</a></div></div>
+
+{{if not .RC}}
+<section class="card">
+  <div class="card-h"><h2>Upload the holdings export</h2></div>
+  <form method="post" action="/reconcile" enctype="multipart/form-data" class="stack">
+    <label>Holdings / valuation file (CSV or .xlsx)<input type="file" name="file" accept=".csv,.txt,.xlsx"></label>
+    <label>…or paste its contents<textarea name="paste" rows="4" placeholder="Investment,Price date,Price,Quantity,Value"></textarea></label>
+    <div><button class="btn primary">Compare</button></div>
+  </form>
+  <p class="muted s">The file is only used for this comparison and is kept in memory for a short while; the account name and number in it are ignored.</p>
+</section>
+{{else}}
+{{$rc := .RC}}
+<section class="stats">
+  <div class="card stat"><span class="lbl">Provider total</span><span class="big">${{money $rc.VGTotal}}</span><span class="sub">{{.File}}{{if $rc.AsAt}} · prices {{$rc.AsAt}}{{end}}</span></div>
+  <div class="card stat"><span class="lbl">FundTrack total</span><span class="big">${{money $rc.FTTotal}}</span><span class="sub">from your recorded transactions</span></div>
+  <div class="card stat"><span class="lbl">Difference</span><span class="big {{if gt .Diff 1.0}}neg{{end}}">${{money .Diff}}</span><span class="sub">{{$rc.NMissing}} holding{{if ne $rc.NMissing 1}}s{{end}} short of units{{if $rc.Cash}} · ${{money $rc.Cash}} cash{{end}}</span></div>
+</section>
+
+{{if $rc.NMissing}}
+<div class="flash warnnote"><b>Why they differ:</b> FundTrack has fewer units than the provider in {{$rc.NMissing}} holding{{if ne $rc.NMissing 1}}s{{end}}, worth about ${{money $rc.MissingValue}} at the provider's prices.
+Your earliest transaction is {{$rc.EarliestTxn}}, so units bought earlier are probably missing from what you imported. <b>Fix:</b> export and <a href="/transactions#import">import</a> the earlier transaction history (overlapping files are fine — duplicates are skipped), then compare again.
+{{if $rc.Cash}}The provider's cash balance (${{money $rc.Cash}}) is not tracked by FundTrack.{{end}}</div>
+{{else if $rc.NOK}}
+<div class="flash ok">Every unit count matches the provider.{{if $rc.Cash}} Any remaining difference is the cash balance (${{money $rc.Cash}}), which FundTrack doesn't track.{{end}}</div>
+{{end}}
+
+<section class="card">
+  <div class="card-h"><h2>Holdings</h2></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Holding</th><th class="r">Provider units</th><th class="r">FundTrack units</th><th class="r">Difference</th><th class="r">Value of difference</th></tr></thead>
+    <tbody>
+    {{range $rc.Rows}}<tr>
+      <td>{{.Name}}{{if .Symbol}} <span class="tag">{{.Symbol}}</span>{{end}}
+        {{if eq .Status "unmatched"}}<br><span class="muted s">Not found in FundTrack — import its transactions.</span>{{end}}
+        {{if eq .Status "extra"}}<br><span class="muted s">FundTrack has more units than the provider (a sale or transfer out that isn't in the provider's file?).</span>{{end}}
+        {{if .PriceMismatch}}<br><span class="muted s">FundTrack's price ({{num4 .FTPrice}}) differs from the provider's ({{num4 .VGPrice}}).</span>{{end}}</td>
+      <td class="r">{{num4 .VGUnits}}</td>
+      <td class="r">{{num4 .FTUnits}}</td>
+      <td class="r {{if eq .Status "ok"}}muted{{else}}neg{{end}}">{{if eq .Status "ok"}}✓{{else}}{{num4 .DiffUnits}}{{end}}</td>
+      <td class="r">{{if ne .Status "ok"}}${{money .DiffValue}}{{end}}</td>
+    </tr>{{end}}
+    </tbody>
+  </table></div>
+  {{if $rc.NotInVanguard}}<p class="muted s">In FundTrack but not in the provider's file (sold, or held elsewhere): {{range $i, $r := $rc.NotInVanguard}}{{if $i}}, {{end}}{{$r.Name}} ({{num4 $r.FTUnits}} units){{end}}.</p>{{end}}
+</section>
+<div><a class="btn" href="/reconcile">Compare another file</a></div>
+{{end}}
+{{end}}
