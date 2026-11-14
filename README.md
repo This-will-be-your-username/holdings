@@ -135,3 +135,28 @@ Assumptions you can change (a collapsible panel on both forms): sale date under 
 1 July 2027 (% a year, default 0 - with no growth the two regimes cost the same; the gap appears as soon as prices rise)
 and CPI (default 2.5%). Not modelled: the minimum-tax exemption for income-support recipients, trusts, valuation by the
 ATO's apportionment method, and how the 12-month test works after the reset (original purchase date is assumed).
+
+## Live prices and saved history
+- **Live while the market is open.** For every listed holding the app polls a small quote every 30 seconds during the
+  exchange's regular hours (ASX 10:00-16:10 Sydney, US 09:30-16:00 New York; weekends and public holidays are detected
+  from the session window Yahoo returns with each quote). The dashboard shows a status chip ("Live - ASX open - updated
+  10:42:05" / "Markets closed - prices as at Fri 13 Nov") and refreshes its numbers by itself. Nothing is fetched while a
+  market is closed.
+- **Sources.** Yahoo Finance for ASX and US prices; if Yahoo rate-limits or fails, ASX symbols fall back to the ASX's own
+  bid/ask midpoint (only while trading). A 429 makes the app back off instead of hammering Yahoo.
+- **History is saved, not re-downloaded.** Daily prices live in the data file and are only topped up (the last ~10 days)
+  on each refresh. Benchmarks and FX are incremental too; secondary lookups are throttled to a few times a day. Live quotes
+  are kept in a small side file (`<data file>.quotes`) so the main file isn't rewritten every few seconds.
+- **No more silent failures.** The old refresh stamped "last refreshed" even when every request failed. Now that time only
+  moves when something really updated, and any failure (rate limit, bad symbol, Vanguard unreachable) is saved and shown
+  on the dashboard.
+
+## Vanguard unlisted funds (Fund prices page)
+Unit prices come straight from Vanguard Australia's own site API - the data behind each fund's *Prices and distributions*
+tab: `GET /personal/api/products/personal/funds/allfunds` (fund list with portId and APIR) and
+`GET /personal/api/products/personal/fund/{portId}/prices` (daily NAV history). Hold the fund under its APIR code
+(e.g. `VAN0108AU`, market *Managed fund*) and the portId is found automatically (VAN0108AU -> 8121); you can also set it by
+hand from the fund page's `portId=` address. Prices are fetched on refresh (at most a few times a day) or with
+**Fetch from Vanguard now**. Fallback: **Import price history** reads Vanguard's export (`.xlsx` or CSV with
+`Date, Buy, Sell, NAV`, or any date/price table; NAV preferred, then unit price, then sell, then buy). Imported prices
+override fetched ones on the same date. The transaction importer now accepts `.xlsx` files too.

@@ -52,8 +52,8 @@ type QuoteData struct {
 // fetchYahoo pulls daily closes + dividend events for a symbol (ASX symbols
 // carry the .AX suffix). Endpoint is unofficial but keyless.
 func fetchYahoo(symbol string, from time.Time) (*QuoteData, error) {
-	u := fmt.Sprintf("https://query1.finance.yahoo.com/v8/finance/chart/%s?period1=%d&period2=%d&interval=1d&events=div",
-		url.PathEscape(symbol), from.Unix(), time.Now().Add(24*time.Hour).Unix())
+	u := fmt.Sprintf("%s/v8/finance/chart/%s?period1=%d&period2=%d&interval=1d&events=div",
+		yahooBase, url.PathEscape(symbol), from.Unix(), time.Now().Add(24*time.Hour).Unix())
 	b, err := httpGet(u)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", symbol, err)
@@ -139,7 +139,7 @@ func fetchASXDiv(code string) (string, DivInfo, error) {
 	}
 	var lastErr error
 	for _, kind := range []string{"etfs", "companies"} {
-		b, err := httpGet(fmt.Sprintf("https://asx.api.markitdigital.com/asx-research/1.0/%s/%s/key-statistics", kind, url.PathEscape(strings.ToLower(code))))
+		b, err := httpGet(fmt.Sprintf("%s/asx-research/1.0/%s/%s/key-statistics", asxBase, kind, url.PathEscape(strings.ToLower(code))))
 		if err != nil {
 			lastErr = err
 			continue
@@ -198,149 +198,6 @@ func fetchFX(ccy string, from, to time.Time) (map[string]float64, error) {
 		}
 	}
 	return out, nil
-}
-
-// Refresh pulls prices, dividends and FX for every held instrument.
-func (a *App) Refresh() (string, error) {
-	a.refreshMu.Lock()
-	defer a.refreshMu.Unlock()
-	if a.inTest() { // simulated data: fetching real prices would make the test transactions inconsistent
-		return "Test mode: prices are simulated, nothing was fetched", nil
-	}
-
-	type job struct {
-		sym  string
-		from time.Time
-	}
-	var jobs []job
-	fxFrom := map[string]time.Time{}
-	fxHave := map[string][2]string{} // ccy -> first,last stored date
-	a.st().View(func(db *DB) {
-		earliest := map[string]string{}
-		for _, t := range db.Txns {
-			if e, ok := earliest[t.Symbol]; !ok || t.Date < e {
-				earliest[t.Symbol] = t.Date
-			}
-		}
-		for sym, e := range earliest {
-			inst := db.Instruments[sym]
-			if inst == nil || inst.Market == MarketManaged {
-				continue
-			}
-			d, _ := time.Parse(dateFmt, e)
-			from := d.AddDate(0, 0, -10)
-			if lim := time.Now().AddDate(-histYears, 0, 0); lim.Before(from) {
-				from = lim // keep several years of history for trend analysis
-			}
-			jobs = append(jobs, job{sym, from})
-			if inst.Currency != "AUD" {
-				if f, ok := fxFrom[inst.Currency]; !ok || d.Before(f) {
-					fxFrom[inst.Currency] = d
-				}
-			}
-		}
-		for ccy := range fxFrom {
-			s := newSeries(db.FX[ccy])
-			if len(s.D) > 0 {
-				fxHave[ccy] = [2]string{s.D[0], s.D[len(s.D)-1]}
-			}
-		}
-	})
-
-	var errs []string
-	quotes := map[string]*QuoteData{}
-	for _, j := range jobs {
-		q, err := fetchYahoo(j.sym, j.from)
-		if err != nil {
-			errs = append(errs, err.Error())
-			continue
-		}
-		quotes[j.sym] = q
-	}
-	// wider-market context for the outlook: indices, volatility and the dollar
-	bench := map[string]map[string]float64{}
-	if len(jobs) > 0 {
-		for sym := range benchmarks {
-			q, err := fetchYahoo(sym, time.Now().AddDate(-histYears, 0, 0))
-			if err != nil {
-				errs = append(errs, err.Error())
-				continue
-			}
-			bench[sym] = q.Closes
-		}
-	}
-	type asxDiv struct {
-		ex   string
-		info DivInfo
-	}
-	asx := map[string]asxDiv{}
-	for _, j := range jobs {
-		if _, ok := quotes[j.sym]; ok && strings.HasSuffix(j.sym, ".AX") {
-			// best effort: franking % and pay date for the latest distribution
-			if ex, info, err := fetchASXDiv(strings.TrimSuffix(j.sym, ".AX")); err == nil {
-				asx[j.sym] = asxDiv{ex, info}
-			}
-		}
-	}
-	fxData := map[string]map[string]float64{}
-	for ccy, e := range fxFrom {
-		from := e.AddDate(0, 0, -10)
-		if h, ok := fxHave[ccy]; ok && h[0] <= from.Format(dateFmt) {
-			last, _ := time.Parse(dateFmt, h[1])
-			from = last.AddDate(0, 0, -10) // incremental
-		}
-		m, err := fetchFX(ccy, from, time.Now())
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-		if len(m) > 0 {
-			fxData[ccy] = m
-		}
-	}
-
-	err := a.st().Update(func(db *DB) error {
-		for sym, q := range quotes {
-			if db.Prices[sym] == nil {
-				db.Prices[sym] = map[string]float64{}
-			}
-			for d, v := range q.Closes {
-				db.Prices[sym][d] = v
-			}
-			if db.Divs[sym] == nil {
-				db.Divs[sym] = map[string]float64{}
-			}
-			for d, v := range q.Divs {
-				db.Divs[sym][d] = v
-			}
-		}
-		for sym, m := range bench {
-			db.Bench[sym] = m
-		}
-		for sym, a := range asx {
-			if db.DivInfo[sym] == nil {
-				db.DivInfo[sym] = map[string]DivInfo{}
-			}
-			db.DivInfo[sym][a.ex] = a.info
-		}
-		for ccy, m := range fxData {
-			if db.FX[ccy] == nil {
-				db.FX[ccy] = map[string]float64{}
-			}
-			for d, v := range m {
-				db.FX[ccy][d] = v
-			}
-		}
-		db.LastRefresh = time.Now().Format(time.RFC3339)
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	msg := fmt.Sprintf("Refreshed %d instruments", len(quotes))
-	if len(errs) > 0 {
-		return msg, fmt.Errorf("%s", strings.Join(errs, "; "))
-	}
-	return msg, nil
 }
 
 // resolveInstrument builds an Instrument, validating listed symbols against Yahoo.

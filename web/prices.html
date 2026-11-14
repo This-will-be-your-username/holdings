@@ -1,25 +1,52 @@
 {{define "content"}}
 <div class="head"><div><h1>Fund prices</h1>
-<p class="muted">Vanguard's unlisted managed funds have no public price API, so enter unit prices here (from your Vanguard statement or the unit-price page). ASX and US prices are fetched automatically.</p></div></div>
+<p class="muted">Listed ETFs and shares are priced automatically (live while the market is open). Unlisted funds are priced here — Vanguard funds are fetched straight from Vanguard by their APIR code, or you can import a price history.</p></div></div>
 
 {{range .Funds}}
 <section class="card">
-  <div class="card-h"><h2>{{.Name}} <span class="tag">{{.Symbol}}</span></h2></div>
-  <form method="post" action="/prices" class="stack">
-    <input type="hidden" name="symbol" value="{{.Symbol}}">
-    <label>Add prices <small>one per line: <code>date, price</code> — e.g. <code>{{$.Today}}, 98.4521</code></small>
-      <textarea name="data" rows="3" placeholder="{{$.Today}}, 98.4521"></textarea></label>
-    <div><button class="btn primary">Save prices</button></div>
-  </form>
-  {{if .Prices}}
-  <details><summary>{{len .Prices}} saved prices</summary>
-  <table class="compact"><thead><tr><th>Date</th><th class="r">Unit price</th></tr></thead>
-  <tbody>{{range .Prices}}<tr><td>{{.Date}}</td><td class="r">{{num4 .Value}}</td></tr>{{end}}</tbody></table></details>
-  {{else}}<p class="muted s">No prices yet — until you add one, the dashboard values this fund at your last trade price.</p>{{end}}
+  <div class="card-h"><h2>{{.Name}} <span class="tag">{{.Symbol}}</span></h2>
+    <span class="muted s">{{if .Port}}Vanguard fund {{.Port}}{{else if .CanFetch}}Vanguard link found automatically{{else}}not linked to Vanguard{{end}}</span></div>
+  <div class="fund-status">
+    {{if .Latest}}<div><span class="lbl">Latest unit price</span><br><b>${{printf "%.4f" .Latest}}</b> <span class="muted s">as at {{.LatestDate}}</span></div>
+    <div><span class="lbl">Saved prices</span><br><b>{{.Total}}</b> <span class="muted s">{{if .Saved}}{{.Saved}} from Vanguard{{end}}{{if and .Saved .Manual}} · {{end}}{{if .Manual}}{{.Manual}} entered/imported (these win on the same date){{end}}</span></div>
+    {{if .FetchedAt}}<div><span class="lbl">Last fetched</span><br><b>{{.FetchedAt}}</b></div>{{end}}
+    {{else}}<div class="muted">No prices yet — until you add some, the dashboard values this fund at your last trade price.</div>{{end}}
+  </div>
+
+  <div class="fund-actions">
+    {{if .CanFetch}}<form method="post" action="/prices/fetch"><input type="hidden" name="symbol" value="{{.Symbol}}"><button class="btn primary" {{if $.TestMode}}disabled title="Test mode uses simulated prices"{{end}}>↻ Fetch from Vanguard now</button></form>{{end}}
+    <form method="post" action="/prices/import" enctype="multipart/form-data" class="inline">
+      <input type="hidden" name="symbol" value="{{.Symbol}}">
+      <input type="file" name="file" accept=".xlsx,.csv,.txt" required>
+      <button class="btn">Import price history</button>
+    </form>
+  </div>
+  <p class="muted s">Import accepts Vanguard's <b>Prices and distributions</b> export (<code>.xlsx</code> or CSV with <code>Date, Buy, Sell, NAV</code>) or any date/price table. The NAV column is used when there is one.</p>
+
+  <details class="fund-more"><summary>Link to a Vanguard fund by port ID</summary>
+    <form method="post" action="/prices/port" class="inline">
+      <input type="hidden" name="symbol" value="{{.Symbol}}">
+      <input name="port_id" inputmode="numeric" placeholder="e.g. 8121" value="{{.Port}}">
+      <button class="btn">Save link</button>
+    </form>
+    <p class="muted s">Only needed if the APIR code isn't recognised. The port ID is the number after <code>portId=</code> in the fund's address on vanguard.com.au.</p>
+  </details>
+
+  <details class="fund-more"><summary>Add or correct individual prices</summary>
+    <form method="post" action="/prices" class="stack">
+      <input type="hidden" name="symbol" value="{{.Symbol}}">
+      <label>One per line: <code>date, price</code> — e.g. <code>{{$.Today}}, 1.6421</code>
+        <textarea name="data" rows="3" placeholder="{{$.Today}}, 1.6421"></textarea></label>
+      <div><button class="btn">Save prices</button></div>
+    </form>
+    {{if .ManualPrices}}<details><summary>{{len .ManualPrices}} entered/imported prices (these override Vanguard's on the same date)</summary>
+    <table class="compact"><thead><tr><th>Date</th><th class="r">Unit price</th></tr></thead>
+    <tbody>{{range .ManualPrices}}<tr><td>{{.Date}}</td><td class="r">{{num4 .Value}}</td></tr>{{end}}</tbody></table></details>{{end}}
+  </details>
 </section>
 {{else}}
-<div class="card empty"><h2>No managed funds yet</h2>
-<p>Add a transaction with market <b>Managed fund</b> and it will appear here.</p>
+<div class="card empty"><h2>No unlisted funds yet</h2>
+<p>Add a transaction with market <b>Managed fund</b> (use the APIR code, e.g. VAN0108AU, as the symbol) and it will appear here, with prices fetched from Vanguard.</p>
 <a class="btn primary" href="/transactions#add">Add transaction</a></div>
 {{end}}
 {{end}}

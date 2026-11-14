@@ -203,3 +203,25 @@ details.newlaw-opts summary{cursor:pointer;color:var(--muted);font-size:13.5px;f
 details.newlaw-opts .raise-grid{margin:12px 0 4px;grid-template-columns:repeat(3,1fr)}
 @media (max-width:720px){details.newlaw-opts .raise-grid{grid-template-columns:1fr}}
 .nl details{margin-top:8px} .nl details summary{cursor:pointer;color:var(--muted);font-size:13px}
+
+/* ===== live prices ===== */
+.live-chip{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:550;padding:4px 12px 4px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);margin-top:8px}
+.live-chip .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.live-chip.open{border-color:color-mix(in srgb,var(--pos) 45%,var(--line))} .live-chip.open .dot{background:var(--pos);box-shadow:0 0 0 0 color-mix(in srgb,var(--pos) 60%,transparent);animation:pulse 2s infinite}
+.live-chip.stale{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))} .live-chip.stale .dot{background:var(--warn)}
+.live-chip.test .dot{background:var(--warn)}
+.live-chip .lh{font-weight:400}
+@keyframes pulse{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.live-chip.open .dot{animation:none}}
+.livedot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pos);vertical-align:1px}
+.live-warn{margin-top:6px;font-size:13px;color:var(--warn)}
+
+/* ===== fund prices ===== */
+.fund-status{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 12px}
+.fund-status b{font-size:18px;letter-spacing:-.01em}
+.fund-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.fund-actions form{margin:0}
+.fund-actions input[type=file]{max-width:280px}
+details.fund-more{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+details.fund-more summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+details.fund-more form{margin-top:10px}

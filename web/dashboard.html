@@ -2,7 +2,13 @@
 <div class="head">
   <div>
     <h1>Your portfolio</h1>
-    <p class="muted">Personal performance from your own transactions · prices refreshed {{.Last}}</p>
+    <p class="muted">Personal performance from your own transactions</p>
+    <div id="live-head">
+      <div id="live-chip" class="live-chip {{.LV.State}}" data-open="{{if .LV.Open}}1{{else}}0{{end}}"><span class="dot"></span><span class="lt">{{.LV.Text}}</span><span class="muted s lh"> · {{.LV.Detail}}</span></div>
+      {{if .LV.Note}}<div class="muted s">{{.LV.Note}}</div>{{end}}
+      {{if .LV.Err}}<div class="live-warn">⚠ {{.LV.Err}}</div>{{end}}
+      {{if .LV.RefreshErr}}<div class="live-warn">⚠ The last price refresh had problems: {{.LV.RefreshErr}}</div>{{end}}
+    </div>
   </div>
   <div class="actions">
     <form method="post" action="/refresh"><input type="hidden" name="back" value="/"><button class="btn">↻ Refresh prices</button></form>
@@ -18,12 +24,12 @@
 </div>
 {{else}}
 {{with .R.Total}}
-<section class="stats">
+<div id="live-stats"><section class="stats">
   <div class="card stat"><span class="lbl">Market value</span><span class="big">${{money .ValueAUD}}</span><span class="sub">cost basis ${{money .CostAUD}}</span></div>
   <div class="card stat"><span class="lbl">Total return</span><span class="big {{cls .TotalReturn}}">{{signed .TotalReturn}}</span><span class="sub {{cls .ReturnPct}}">{{pct .ReturnPct}} on ${{money0 .Invested}} invested</span></div>
   <div class="card stat"><span class="lbl">Your annual return (XIRR)</span><span class="big {{cls .XIRR}}">{{if .HasXIRR}}{{pct .XIRR}}{{else}}—{{end}}</span><span class="sub">money-weighted, p.a.</span></div>
   <div class="card stat"><span class="lbl">Income received</span><span class="big">${{money .Income}}</span><span class="sub">{{if .Franking}}+ ${{money .Franking}} franking credits · {{end}}realised {{signed .Realised}} · unrealised {{signed .Unrealised}}</span></div>
-</section>
+</section></div>
 {{end}}
 
 {{if .HasChart}}
@@ -33,7 +39,7 @@
 </section>
 {{end}}
 
-<section class="card">
+<section class="card" id="live-holdings">
   <div class="card-h"><h2>Holdings</h2><a class="link" href="/export/holdings.csv">Export holdings CSV</a></div>
   <div class="scroll">
   <table>
@@ -44,7 +50,7 @@
       <td><b>{{short .Symbol}}</b> <span class="tag">{{.Market}}</span><div class="muted s">{{.Name}} · <a class="link s" href="/estimator?sym={{.Symbol}}">estimate a sale</a>{{if .PriceNote}} · <span class="warn" title="{{.PriceNote}}">⚠ {{.PriceNote}}</span>{{end}}</div></td>
       <td class="r">{{units .Units}}</td>
       <td class="r">{{money .AvgCost}}</td>
-      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}<div class="muted s">{{.PriceDate}}</div></td>
+      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}<div class="muted s">{{if .Live}}<span class="livedot" title="Live quote ({{.PriceSource}})"></span> {{hm .PriceAt}}{{else}}{{.PriceDate}}{{end}}</div></td>
       <td class="r"><b>{{money .ValueAUD}}</b><div class="muted s">{{printf "%.1f" .Weight}}%</div></td>
       <td class="r {{cls .Unrealised}}">{{signed .Unrealised}}</td>
       <td class="r">{{money .Income}}{{if .Franking}}<div class="muted s">+{{money .Franking}} franking</div>{{end}}</td>

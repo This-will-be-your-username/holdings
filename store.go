@@ -29,6 +29,9 @@ type Instrument struct {
 	TargetPct   float64 `json:"target_pct,omitempty"`   // intended share of the portfolio, percent (0 = not set)
 	HorizonYrs  float64 `json:"horizon_yrs,omitempty"`  // intended holding period in years (0 = role default)
 	ExpectedPct float64 `json:"expected_pct,omitempty"` // expected return a year, percent (0 = role default)
+
+	// Unlisted Vanguard funds: Vanguard's own fund id, used to fetch unit prices (see vanguard.go).
+	VanguardPort string `json:"vg_port,omitempty"`
 }
 
 // Txn is a single user transaction. Price/Amount are in the instrument's
@@ -111,6 +114,16 @@ type DB struct {
 	Divs        map[string]map[string]float64 `json:"divs"`   // symbol -> ex-date -> per-unit dividend
 	FX          map[string]map[string]float64 `json:"fx"`     // currency -> date -> AUD per unit
 	LastRefresh string                        `json:"last_refresh"`
+
+	// Price-fetch bookkeeping, saved with the data so a restart doesn't re-download everything.
+	PriceAt    map[string]string `json:"price_at"`    // symbol (or "feed:key") -> time its data last updated successfully
+	RefreshErr string            `json:"refresh_err"` // what went wrong in the last refresh, empty if it was clean
+	RefreshAt  string            `json:"refresh_at"`  // when that refresh ran
+
+	// Live quotes: kept in memory and saved to a small side file (not in the main data file), because they change every
+	// few seconds during market hours.
+	Quotes map[string]Quote `json:"-"`
+	Live   LiveStatus       `json:"-"`
 }
 
 type Store struct {
@@ -137,6 +150,7 @@ func OpenStore(path string) (*Store, error) {
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
+	s.loadQuotes()
 	return s, nil
 }
 
@@ -155,6 +169,12 @@ func (d *DB) init() {
 	}
 	if d.FX == nil {
 		d.FX = map[string]map[string]float64{}
+	}
+	if d.PriceAt == nil {
+		d.PriceAt = map[string]string{}
+	}
+	if d.Quotes == nil {
+		d.Quotes = map[string]Quote{}
 	}
 	if d.Bench == nil {
 		d.Bench = map[string]map[string]float64{}
@@ -203,4 +223,42 @@ func newID() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// ---------- live quotes (side file) ----------
+
+type quoteFile struct {
+	Quotes map[string]Quote `json:"quotes"`
+	Live   LiveStatus       `json:"live"`
+}
+
+func (s *Store) quotePath() string { return s.path + ".quotes" }
+
+func (s *Store) loadQuotes() {
+	b, err := os.ReadFile(s.quotePath())
+	if err != nil {
+		return
+	}
+	var qf quoteFile
+	if json.Unmarshal(b, &qf) == nil && qf.Quotes != nil {
+		s.db.Quotes, s.db.Live = qf.Quotes, qf.Live
+	}
+}
+
+// SetLive records fresh quotes and the live status. It only touches memory and the small side file, never the main
+// data file. The side file is rewritten when save is true.
+func (s *Store) SetLive(q map[string]Quote, st LiveStatus, save bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for sym, v := range q {
+		s.db.Quotes[sym] = v
+	}
+	s.db.Live = st
+	if save {
+		b, err := json.Marshal(quoteFile{s.db.Quotes, s.db.Live})
+		if err == nil {
+			_ = os.MkdirAll(filepath.Dir(s.quotePath()), 0o755)
+			_ = os.WriteFile(s.quotePath(), b, 0o644)
+		}
+	}
 }

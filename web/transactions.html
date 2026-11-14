@@ -66,7 +66,7 @@
 <section class="card" id="import">
   <div class="card-h"><h2>Import from your broker or fund manager</h2></div>
   <form method="post" action="/import" enctype="multipart/form-data" class="stack">
-    <div class="inline"><input type="file" name="file" accept=".csv,.txt,text/csv"> <button class="btn primary">Upload &amp; review</button></div>
+    <div class="inline"><input type="file" name="file" accept=".csv,.xlsx,.txt,text/csv"> <button class="btn primary">Upload &amp; review</button></div>
     <details><summary>…or paste CSV text</summary><textarea name="paste" rows="5" placeholder="Date,Code,Type,Quantity,Price&#10;02/01/2025,VAS,Buy,50,95.10"></textarea></details>
   </form>
   <p class="muted s">Works with most broker and fund-manager exports (CommSec, SelfWealth, Stake, IBKR, Vanguard statements, and others): it finds the columns, date format and buy/sell wording itself, then shows you what it understood before anything is saved. Every transaction is fingerprinted, so uploading an overlapping file later skips the ones you already have.</p>

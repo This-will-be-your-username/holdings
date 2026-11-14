@@ -238,7 +238,7 @@
             var pos = ci; ci += c.colSpan || 1;
             if (c.colSpan > 1 || !heads[pos]) return;
             c.setAttribute('data-label', heads[pos]);
-            if (i > 0 && c.childNodes.length) { // keep value + sub-line together as one flex item when stacked
+            if (i > 0 && c.childNodes.length && !(c.children.length === 1 && c.firstElementChild.classList.contains('v'))) { // keep value + sub-line together as one flex item when stacked
               var v = document.createElement('span'); v.className = 'v';
               while (c.firstChild) v.appendChild(c.firstChild);
               c.appendChild(v);
@@ -249,6 +249,7 @@
     });
   }
 
+  window.FT = { labelTables: labelTables }; // used by live.js after it swaps in fresh table rows
   function start() { labelTables(); init(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

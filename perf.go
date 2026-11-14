@@ -127,6 +127,9 @@ type Row struct {
 }
 
 type Holding struct {
+	Live                           bool   // priced from a live quote (market open, quote under 15 minutes old)
+	PriceAt                        int64  // unix time of the quote that set Price, if it came from a live quote
+	PriceSource                    string // yahoo | asx, for live quotes
 	Symbol, Name, Market, Currency string
 	YearsHeld                      float64 // years since the first purchase
 	Units, CostAUD, AvgCost        float64
@@ -187,6 +190,18 @@ func Compute(db *DB, now time.Time) *Result {
 		}
 		for d, v := range db.Manual[sym] {
 			m[d] = v
+		}
+		// today's live quote, if it is newer than the saved daily history
+		if q, ok := db.Quotes[sym]; ok && q.Price > 0 && q.Date != "" {
+			latest := ""
+			for d := range m {
+				if d > latest {
+					latest = d
+				}
+			}
+			if q.Date >= latest {
+				m[q.Date] = q.Price
+			}
 		}
 		px[sym] = newSeries(m)
 	}
@@ -323,6 +338,10 @@ func Compute(db *DB, now time.Time) *Result {
 		h.FXNow, _ = fxAt(h.Currency, today)
 		if p, d, ok := px[sym].Last(); ok {
 			h.Price, h.PriceDate = p, d
+			if q, ok := db.Quotes[sym]; ok && q.Date == d && q.Price == p {
+				h.PriceAt, h.PriceSource = q.At, q.Source
+				h.Live = now.Unix()-q.At < 15*60 && marketOpenByClock(db.Instruments[sym].Market, now)
+			}
 			if d < now.AddDate(0, 0, -7).Format(dateFmt) {
 				h.PriceNote = "price is over a week old"
 			}

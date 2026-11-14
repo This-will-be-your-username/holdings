@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +21,7 @@ import (
 var webFS embed.FS
 
 type App struct {
+	liveSaved time.Time // when the live-quote side file was last written
 	pages     map[string]*template.Template
 	refreshMu sync.Mutex
 	modes     // real vs test data stores (see testmode.go)
@@ -62,10 +62,10 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /transactions/delete", a.deleteTxn)
 	a.registerImport(mux)
 	a.registerTestMode(mux)
-	mux.HandleFunc("GET /prices", a.pricesPage)
+	a.registerPrices(mux)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
-		msg, err := a.Refresh()
+		msg, err := a.RefreshNow()
 		back := r.FormValue("back")
 		if !strings.HasPrefix(back, "/") {
 			back = "/"
@@ -92,6 +92,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	go a.liveLoop()
+	go func() { _, _ = a.LiveTick(false) }()
 	go func() {
 		for {
 			if msg, err := a.Refresh(); err != nil {
@@ -154,13 +156,20 @@ func (a *App) compute() (res *Result, last string) {
 }
 
 func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
-	res, last := a.compute()
+	var res *Result
+	var last string
+	var lv liveView
+	a.st().View(func(db *DB) {
+		now := liveNow()
+		res, last = Compute(db, now), db.LastRefresh
+		lv = buildLiveView(db, a.inTest(), res, now)
+	})
 	lastFmt := "never"
 	if t, err := time.Parse(time.RFC3339, last); err == nil {
 		lastFmt = t.Local().Format("2 Jan 15:04")
 	}
 	a.render(w, r, "dashboard", map[string]any{
-		"R": res, "Last": lastFmt, "Empty": len(res.Rows) == 0, "HasChart": len(res.Chart) > 1,
+		"R": res, "Last": lastFmt, "LV": lv, "Empty": len(res.Rows) == 0, "HasChart": len(res.Chart) > 1,
 		"Charts": chartJS(map[string]*ChartCfg{"value": portfolioChart(res.Chart)}),
 	})
 }
@@ -253,29 +262,6 @@ func (a *App) deleteTxn(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	redirect(w, r, "/transactions", "Transaction deleted", "")
-}
-
-func (a *App) pricesPage(w http.ResponseWriter, r *http.Request) {
-	type fund struct {
-		Symbol, Name string
-		Prices       []ChartPt // Date/Value reused
-	}
-	var funds []fund
-	a.st().View(func(db *DB) {
-		for _, inst := range db.Instruments {
-			if inst.Market != MarketManaged {
-				continue
-			}
-			f := fund{Symbol: inst.Symbol, Name: inst.Name}
-			for d, v := range db.Manual[inst.Symbol] {
-				f.Prices = append(f.Prices, ChartPt{Date: d, Value: v})
-			}
-			sort.Slice(f.Prices, func(i, j int) bool { return f.Prices[i].Date > f.Prices[j].Date })
-			funds = append(funds, f)
-		}
-	})
-	sort.Slice(funds, func(i, j int) bool { return funds[i].Symbol < funds[j].Symbol })
-	a.render(w, r, "prices", map[string]any{"Funds": funds, "Today": time.Now().Format(dateFmt)})
 }
 
 // addPrices accepts "date,price" lines (or "date price") for a managed fund.
@@ -375,6 +361,7 @@ var funcs = template.FuncMap{
 	},
 	"short": func(s string) string { return strings.TrimSuffix(s, ".AX") },
 	"abs":   math.Abs,
+	"hm":    clock,
 	"sub":   func(a, b float64) float64 { return a - b },
 	"pc":    func(v float64) string { return fmt.Sprintf("%.1f%%", v*100) },
 	"pp": func(v float64) string { // signed percentage points

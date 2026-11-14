@@ -87,6 +87,14 @@ func (a *App) importStart(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/transactions", "", "choose a CSV file (or paste CSV text) to import")
 		return
 	}
+	if isXLSX(data) { // a spreadsheet export: read its first sheet as CSV
+		csvData, err := xlsxToCSV(data)
+		if err != nil {
+			redirect(w, r, "/transactions", "", err.Error())
+			return
+		}
+		data = csvData
+	}
 	s := newSession(name, data)
 	http.Redirect(w, r, "/import/review?t="+url.QueryEscape(s.ID), http.StatusSeeOther)
 }
