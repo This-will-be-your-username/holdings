@@ -41,7 +41,7 @@
   if (saved && saved.sel) {
     st.sel = saved.sel; st.metric = saved.metric || 'value'; st.combine = !!saved.combine; st.inv = !!saved.inv;
   } else {
-    st.sel[TOTAL] = true;
+    st.sel[TOTAL] = true; st.inv = true; // new visitors see money invested alongside value
   }
   var preset = saved && saved.preset !== undefined ? saved.preset : 'all';
   function persist() {
@@ -89,11 +89,25 @@
       if (st.metric === 'gain') return s.invested[i] === null ? null : v - s.invested[i];
       return v;
     }
-    function mk(name, color, dash, getter, cls) {
-      var ys = new Array(N);
-      for (var i = 0; i < N; i++) ys[i] = getter(i);
-      return { name: name, color: color, dash: dash, y: ys, cls: cls || '' };
+    function mk(name, color, dash, getter, cls, invGetter) {
+      var ys = new Array(N), iv = invGetter ? new Array(N) : null;
+      for (var i = 0; i < N; i++) { ys[i] = getter(i); if (iv) iv[i] = invGetter(i); }
+      return { name: name, color: color, dash: dash, y: ys, inv: iv, cls: cls || '' };
     }
+    function sumInv(parts) {
+      return function (i) {
+        var s = 0, any = false;
+        parts.forEach(function (p) { var v = p.invested[i]; if (v !== null) { s += v; any = true; } });
+        return any ? s : null;
+      };
+    }
+    // a dashed "money invested" line in the same colour as the line it belongs to
+    function invLine(ln) {
+      if (!st.inv || st.metric !== 'value' || !ln.inv) return null;
+      var iv = ln.inv;
+      return { name: 'Invested: ' + ln.name, color: ln.color, dash: '5 4', y: iv, inv: null, cls: 'inv' };
+    }
+    function push(ln) { out.push(ln); var x = invLine(ln); if (x) out.push(x); }
     if (st.metric === 'index') {
       chosen.forEach(function (it) {
         var base = null;
@@ -104,22 +118,14 @@
     } else if (st.combine && chosen.length + (wantTotal ? 1 : 0) > 0) {
       var parts = chosen.slice(); if (wantTotal) parts = [D.total];
       var nm = wantTotal ? 'Total portfolio' : chosen.length === 1 ? chosen[0].name : 'Selected (' + chosen.length + ')';
-      out.push(mk(nm, 'var(--accent)', '', function (i) {
+      push(mk(nm, 'var(--accent)', '', function (i) {
         var s = 0, any = false;
         parts.forEach(function (p) { var v = valueOf(p, i); if (v !== null) { s += v; any = true; } });
         return any ? s : null;
-      }, 'total'));
-      if (st.inv && st.metric === 'value') out.push(mk('Money invested', 'var(--muted)', '5 4', function (i) {
-        var s = 0, any = false;
-        parts.forEach(function (p) { var v = p.invested[i]; if (v !== null) { s += v; any = true; } });
-        return any ? s : null;
-      }, 'inv'));
+      }, 'total', sumInv(parts)));
     } else {
-      if (wantTotal) {
-        out.push(mk('Total portfolio', 'var(--accent)', '', function (i) { return valueOf(D.total, i); }, 'total'));
-        if (st.inv && st.metric === 'value') out.push(mk('Money invested', 'var(--muted)', '5 4', function (i) { return D.total.invested[i]; }, 'inv'));
-      }
-      chosen.forEach(function (it) { out.push(mk(it.name, it.color, it.dash, function (i) { return valueOf(it, i); })); });
+      if (wantTotal) push(mk('Total portfolio', 'var(--accent)', '', function (i) { return valueOf(D.total, i); }, 'total', function (i) { return D.total.invested[i]; }));
+      chosen.forEach(function (it) { push(mk(it.name, it.color, it.dash, function (i) { return valueOf(it, i); }, '', function (i) { return it.invested[i]; })); });
     }
     return { lines: out, i0: i0, i1: i1 };
   }
@@ -260,17 +266,19 @@
       $('xp-zoom').onclick = function () { st.from = T[a]; st.to = T[b]; preset = null; st.hl = null; sync(); };
       $('xp-clear').onclick = function () { st.hl = null; render(); };
     }
-    var head = '<thead><tr><th>' + label + ': ' + fdate(T[a], true) + ' – ' + fdate(T[b], true) + '</th><th class="r">Start</th><th class="r">End</th><th class="r">Change</th><th class="r">%</th></tr></thead>';
+    var head = '<thead><tr><th>' + label + ': ' + fdate(T[a], true) + ' – ' + fdate(T[b], true) + '</th><th class="r">Start</th><th class="r">End</th><th class="r">Change</th><th class="r">%</th><th class="r" title="Money put in, net of sales, at the end of the period">Invested</th></tr></thead>';
     var rows = view.lines.filter(function (l) { return l.cls !== 'inv'; }).map(function (l) {
-      var s = null, e = null, i;
+      var s = null, e = null, i, ivEnd = null;
+      if (l.inv) for (i = b; i >= a; i--) if (l.inv[i] !== null) { ivEnd = l.inv[i]; break; }
       for (i = a; i <= b; i++) if (l.y[i] !== null) { s = l.y[i]; break; }
       for (i = b; i >= a; i--) if (l.y[i] !== null) { e = l.y[i]; break; }
-      if (s === null || e === null) return '<tr><td>' + dot(l) + esc(l.name) + '</td><td class="r" colspan="4">no data</td></tr>';
+      if (s === null || e === null) return '<tr><td>' + dot(l) + esc(l.name) + '</td><td class="r" colspan="5">no data</td></tr>';
       var ch = e - s, pct = Math.abs(s) > 1e-9 ? ch / Math.abs(s) * 100 : null, cls = ch > 0 ? 'pos' : ch < 0 ? 'neg' : '';
       var idx = st.metric === 'index';
       return '<tr><td>' + dot(l) + esc(l.name) + '</td><td class="r">' + fmtFull(s) + '</td><td class="r">' + fmtFull(e) + '</td>' +
         '<td class="r ' + cls + '">' + (idx ? (ch >= 0 ? '+' : '') + ch.toFixed(1) + ' pts' : (ch >= 0 ? '+' : '-') + money(Math.abs(ch), 0)) + '</td>' +
-        '<td class="r ' + cls + '">' + (pct === null ? '—' : (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%') + '</td></tr>';
+        '<td class="r ' + cls + '">' + (pct === null ? '—' : (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%') + '</td>' +
+        '<td class="r">' + (ivEnd === null ? '—' : money(ivEnd, 0)) + '</td></tr>';
     }).join('');
     tbl.innerHTML = head + '<tbody>' + rows + '</tbody>';
     var note = { value: 'Value changes include money you added or took out. Use Gain / loss or Price index to compare how investments actually performed.', gain: 'Gain / loss is value minus the money you put in (net of sales); it excludes distributions paid out as cash.', index: 'Price index starts each investment at 100 on the first day of the range, so lines are directly comparable regardless of how much you hold.' }[st.metric];

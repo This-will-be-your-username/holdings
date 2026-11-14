@@ -43,12 +43,13 @@
   <div class="card-h"><h2>Holdings</h2><a class="link" href="/export/holdings.csv">Export holdings CSV</a></div>
   <div class="scroll">
   <table>
-    <thead><tr><th>Holding</th><th class="r">Units</th><th class="r">Avg cost</th><th class="r">Price</th><th class="r">Value (AUD)</th><th class="r">Unrealised</th><th class="r">Income</th><th class="r">Realised</th><th class="r">Return</th><th class="r">XIRR</th></tr></thead>
+    <thead><tr><th>Holding</th><th class="r">Units</th><th class="r" title="Total money you put in (all buys, including fees)">Invested</th><th class="r">Avg cost</th><th class="r">Price</th><th class="r">Value (AUD)</th><th class="r">Unrealised</th><th class="r">Income</th><th class="r">Realised</th><th class="r">Return</th><th class="r">XIRR</th></tr></thead>
     <tbody>
     {{range .R.Holdings}}
     <tr>
       <td><b>{{short .Symbol}}</b> <span class="tag">{{.Market}}</span><div class="muted s">{{.Name}} · <a class="link s" href="/estimator?sym={{.Symbol}}">estimate a sale</a>{{if .PriceNote}} · <span class="warn" title="{{.PriceNote}}">⚠ {{.PriceNote}}</span>{{end}}</div></td>
       <td class="r">{{units .Units}}</td>
+      <td class="r">{{money .Invested}}</td>
       <td class="r">{{money .AvgCost}}</td>
       <td class="r">{{money (mulf .Price .FXNow)}}{{if ne .Currency "AUD"}} <span class="muted s">{{orig .Currency .Price}}</span>{{end}}<div class="muted s">{{if .Live}}<span class="livedot" title="Live quote ({{.PriceSource}})"></span> {{hm .PriceAt}}{{else}}{{.PriceDate}}{{end}}</div></td>
       <td class="r"><b>{{money .ValueAUD}}</b>{{if ne .Currency "AUD"}} <span class="muted s">{{orig .Currency (mulf .Units .Price)}}</span>{{end}}<div class="muted s">{{printf "%.1f" .Weight}}%</div></td>
@@ -58,7 +59,7 @@
       <td class="r {{cls .ReturnPct}}"><b>{{pct .ReturnPct}}</b></td>
       <td class="r {{cls .XIRR}}">{{if .HasXIRR}}{{pct .XIRR}}{{else}}—{{end}}</td>
     </tr>
-    {{else}}<tr><td colspan="10" class="muted">No open positions.</td></tr>{{end}}
+    {{else}}<tr><td colspan="11" class="muted">No open positions.</td></tr>{{end}}
     </tbody>
   </table>
   </div>
