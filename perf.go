@@ -127,6 +127,7 @@ type Row struct {
 }
 
 type Holding struct {
+	Private                        bool   // unlisted company, valued from your recorded checkpoints
 	Live                           bool   // priced from a live quote (market open, quote under 15 minutes old)
 	PriceAt                        int64  // unix time of the quote that set Price, if it came from a live quote
 	PriceSource                    string // yahoo | asx, for live quotes
@@ -245,7 +246,7 @@ func Compute(db *DB, now time.Time) *Result {
 		}
 		s := st[t.Symbol]
 		if s == nil {
-			s = &posState{h: &Holding{Symbol: t.Symbol, Name: inst.Name, Market: inst.Market, Currency: inst.Currency}}
+			s = &posState{h: &Holding{Symbol: t.Symbol, Name: inst.Name, Market: inst.Market, Currency: inst.Currency, Private: inst.Private}}
 			st[t.Symbol] = s
 			order = append(order, t.Symbol)
 		}
@@ -392,6 +393,13 @@ func Compute(db *DB, now time.Time) *Result {
 		}
 		if h.PriceNote != "" && !h.Closed {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %s", sym, h.PriceNote))
+		}
+		if h.Private && !h.Closed {
+			if d, err := time.Parse(dateFmt, h.PriceDate); err != nil {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s is valued at your last trade price - record a value checkpoint on the Private page.", h.Name))
+			} else if now.Sub(d) > staleAfterDays*24*time.Hour {
+				res.Warnings = append(res.Warnings, fmt.Sprintf("%s was last valued on %s - check for a newer valuation on the Private page.", h.Name, h.PriceDate))
+			}
 		}
 	}
 	for _, h := range res.Holdings {

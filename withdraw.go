@@ -148,6 +148,13 @@ func collectCands(base *Result, parcels map[string][]*parcel, o WithdrawOpts, sa
 		hc := &holdCands{h: h, allowed: len(o.Only) == 0 || o.Only[h.Symbol]}
 		hcs[h.Symbol] = hc
 		order = append(order, h.Symbol)
+		if h.Private { // illiquid: can't be sold on demand, so never suggested
+			if hc.allowed && len(o.Only) > 0 {
+				notes = append(notes, fmt.Sprintf("%s is a private holding and can't be sold on demand, so it was left out", short(h.Symbol)))
+			}
+			hc.allowed = false
+			continue
+		}
 		hc.pu = h.Price * h.FXNow
 		if hc.pu <= 0 {
 			if hc.allowed {

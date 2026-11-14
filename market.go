@@ -202,6 +202,12 @@ func fetchFX(ccy string, from, to time.Time) (map[string]float64, error) {
 
 // resolveInstrument builds an Instrument, validating listed symbols against Yahoo.
 func resolveInstrument(sym, market, name string) (*Instrument, error) {
+	if market == MarketPrivate {
+		if name == "" {
+			name = sym
+		}
+		return &Instrument{Symbol: sym, Name: name, Currency: "AUD", Market: MarketManaged, Private: true}, nil
+	}
 	if market == MarketManaged {
 		if name == "" {
 			name = sym

@@ -165,3 +165,7 @@ override fetched ones on the same date. The transaction importer now accepts `.x
 
 If FundTrack's total differs from your provider's, open **/reconcile** (link on the Transactions page) and upload the provider's holdings export (CSV or xlsx). It compares units per holding and shows which are short and by how much. It changes nothing: the usual cause is a transaction export that doesn't go back far enough, so import the earlier history (duplicates are skipped by fingerprint) and compare again. FundTrack also warns on the dashboard when a holding's first record is a reinvestment, which usually means earlier purchases are missing. Cash balances are not tracked.
 
+
+## Private companies
+
+Shares in an unlisted company are tracked on the **Private** page. Add the company, record your shares as normal buy/sell transactions (market: Private company), and record **value checkpoints** - a date plus either a price per share or the company's reported valuation (divided by the shares on issue). The holding is valued at its latest checkpoint and flagged on the dashboard when that is over a year old. **Search for a valuation** looks for reported valuations in public web results (only the company name is sent); results are shown with their source and are never saved unless you choose to record them. Private holdings are never suggested by the sell estimator.

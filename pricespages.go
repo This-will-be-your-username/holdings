@@ -40,7 +40,7 @@ func (a *App) pricesPage(w http.ResponseWriter, r *http.Request) {
 	var funds []fundRow
 	a.st().View(func(db *DB) {
 		for _, inst := range db.Instruments {
-			if inst.Market != MarketManaged {
+			if inst.Market != MarketManaged || inst.Private {
 				continue
 			}
 			f := fundRow{Symbol: inst.Symbol, Name: inst.Name, Port: inst.VanguardPort, CanFetch: inst.VanguardPort != "" || isAPIR(inst.Symbol)}

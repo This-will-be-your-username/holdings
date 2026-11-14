@@ -1,0 +1,98 @@
+{{define "content"}}
+<div class="head"><div><h1>Private companies</h1>
+<p class="muted">Shares in a company that isn't listed have no market price. Record what the company has reported as <b>value checkpoints</b>; each holding is valued at its latest checkpoint until you add a newer one. You can also search the web for reported valuations — results are leads to check, never saved automatically.</p></div></div>
+
+{{range .Cos}}
+{{$c := .}}
+<section class="card" id="co-{{.Symbol}}">
+  <div class="card-h"><h2>{{.Name}} <span class="tag">{{.Symbol}}</span></h2>
+    <span class="muted s">{{.Currency}}{{if .SharesOut}} · {{num4 .SharesOut}} shares on issue{{end}}</span></div>
+
+  <div class="fund-status">
+    <div><span class="lbl">Your holding</span><br><b>{{if .Units}}{{num4 .Units}} shares{{else}}none recorded{{end}}</b></div>
+    <div><span class="lbl">Latest checkpoint</span><br>{{if .PriceDate}}<b>{{.Currency}} {{num4 .Price}}</b> <span class="muted s">per share, {{.PriceDate}}</span>{{else}}<span class="muted">none yet</span>{{end}}</div>
+    {{if .Units}}<div><span class="lbl">Valued at (AUD)</span><br><b>${{money .ValueAUD}}</b> <span class="muted s">cost ${{money .CostAUD}}</span></div>{{end}}
+  </div>
+  {{if .Stale}}<div class="flash warnnote">The latest checkpoint is {{.AgeDays}} days old. This holding is still valued at it, so the figure may be well out of date.</div>{{end}}
+
+  <div class="fund-actions">
+    <form method="post" action="/private/search" class="inline">
+      <input type="hidden" name="symbol" value="{{.Symbol}}">
+      <input name="term" value="{{.SearchTerm}}" aria-label="Company name to search for">
+      <button class="btn primary" {{if $.TestMode}}disabled title="Test mode doesn't search the web"{{end}}>Search for a valuation</button>
+    </form>
+    <a class="btn" href="{{.WebSearch}}" target="_blank" rel="noopener noreferrer">Open web search ↗</a>
+  </div>
+  <p class="muted s">Only the company name is sent to the search service.</p>
+
+  {{if .Searched}}
+  <div class="search-results">
+    <h3>Search results</h3>
+    {{if .SearchErr}}<div class="flash bad">{{.SearchErr}}</div>
+    {{else if not .Cands}}<p class="muted">No reported valuations found in the first page of results. Try a different spelling in the box above, or record a figure you know below.</p>
+    {{else}}
+    <p class="muted s">Figures below were read from search snippets and may be wrong, in the wrong currency, or about a different company. Open the source and check before recording.</p>
+    <ul class="cands">
+    {{range .Cands}}<li>
+      <div><b>{{.Currency}} {{money .Amount}}</b> {{if .Date}}<span class="tag">{{.Date}}</span>{{else}}<span class="tag">date not found</span>{{end}}
+        {{if ne .Currency $c.Currency}}<span class="tag">in {{.Currency}} — convert to {{$c.Currency}} first</span>{{end}}</div>
+      <div><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a> <span class="muted s">{{.Host}}</span></div>
+      <div class="muted s">{{.Snippet}}</div>
+      {{if eq .Currency $c.Currency}}<a class="btn" href="/private?sym={{$c.Symbol}}&amp;date={{if .Date}}{{.Date}}{{else}}{{$.Today}}{{end}}&amp;valuation={{printf "%.0f" .Amount}}&amp;source={{.URL}}#cp-{{$c.Symbol}}">Use as a checkpoint…</a>{{end}}
+    </li>{{end}}
+    </ul>
+    {{end}}
+  </div>
+  {{end}}
+
+  <h3 id="cp-{{.Symbol}}">Record a value checkpoint</h3>
+  <form method="post" action="/private/checkpoint" class="stack cp-form">
+    <input type="hidden" name="symbol" value="{{.Symbol}}">
+    <label>Date this value applies to <input type="date" name="date" value="{{index .Pre "date"}}" required></label>
+    <label>Price per share ({{.Currency}}) <input name="price" inputmode="decimal" placeholder="e.g. 4.25" value="{{index .Pre "price"}}"></label>
+    <label>…or the company valuation ({{.Currency}}) <input name="valuation" inputmode="decimal" placeholder="e.g. 350m or 1.2b" value="{{index .Pre "valuation"}}"></label>
+    <label>Source <input name="source" placeholder="annual report, 409A, funding announcement, link…" value="{{index .Pre "source"}}"></label>
+    <label>Note <input name="note" value="{{index .Pre "note"}}"></label>
+    {{if index .Pre "source"}}<input type="hidden" name="origin" value="search">{{end}}
+    <div><button class="btn primary">Save checkpoint</button></div>
+    <p class="muted s">Give either a price per share or the company valuation. A valuation is divided by the shares on issue{{if not .SharesOut}} — <b>set that below first</b>{{end}}; it ignores any dilution since. Recording a second checkpoint for the same date replaces the first.</p>
+  </form>
+
+  {{if .Checkpoints}}
+  <h3>Checkpoints</h3>
+  <div class="tablewrap"><table class="compact">
+    <thead><tr><th>Date</th><th class="r">Price / share</th><th class="r">Company valuation</th><th>Source</th><th></th></tr></thead>
+    <tbody>{{range .Checkpoints}}<tr>
+      <td>{{.Date}}</td><td class="r">{{num4 .Price}}</td><td class="r">{{if .Valuation}}{{money .Valuation}}{{else}}—{{end}}</td>
+      <td class="s">{{if .Source}}{{.Source}}{{end}}{{if .Note}}<br><span class="muted">{{.Note}}</span>{{end}}{{if eq .Origin "search"}} <span class="tag">from search</span>{{end}}</td>
+      <td class="r"><form method="post" action="/private/checkpoint/delete" class="inline"><input type="hidden" name="symbol" value="{{$c.Symbol}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn" aria-label="Delete checkpoint {{.Date}}">Delete</button></form></td>
+    </tr>{{end}}</tbody>
+  </table></div>
+  {{end}}
+
+  <details class="fund-more"><summary>Company details</summary>
+    <form method="post" action="/private/company" class="stack">
+      <input type="hidden" name="symbol" value="{{.Symbol}}">
+      <label>Name <input name="name" value="{{.Name}}"></label>
+      <label>Shares on issue (fully diluted) <input name="shares_out" inputmode="decimal" value="{{if .SharesOut}}{{printf "%.0f" .SharesOut}}{{end}}" placeholder="optional"></label>
+      <label>Search for <input name="search_term" value="{{.SearchTerm}}" placeholder="a name used in news coverage, if different"></label>
+      <div><button class="btn">Save details</button></div>
+    </form>
+    <p class="muted s">Add your shares as ordinary <b>buy</b> / <b>sell</b> transactions on the <a href="/transactions?symbol={{.Symbol}}&amp;market=PRIVATE">Transactions page</a> (market: Private company). Private holdings are never suggested by the sell estimator, since they can't be sold on demand.</p>
+  </details>
+</section>
+{{else}}
+<div class="card empty"><h2>No private companies yet</h2><p>Add one below, then record your shares as transactions and a value checkpoint.</p></div>
+{{end}}
+
+<section class="card">
+  <div class="card-h"><h2>Add a private company</h2></div>
+  <form method="post" action="/private/company" class="stack">
+    <label>Company name <input name="name" required placeholder="e.g. Acme Robotics Pty Ltd"></label>
+    <label>Currency <input name="currency" value="AUD" maxlength="3" size="4"></label>
+    <label>Shares on issue (fully diluted) <input name="shares_out" inputmode="decimal" placeholder="optional — lets you enter a company valuation"></label>
+    <label>Search for <input name="search_term" placeholder="optional — name used in news coverage, if different"></label>
+    <div><button class="btn primary">Add company</button></div>
+  </form>
+</section>
+{{end}}

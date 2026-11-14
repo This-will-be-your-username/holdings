@@ -27,6 +27,7 @@
       <select name="market">
         <option value="ASX" {{sel (index .Form "market") "ASX"}}>ASX (ETFs, shares)</option>
         <option value="US" {{sel (index .Form "market") "US"}}>US stock / ETF</option>
+        <option value="PRIVATE" {{sel (index .Form "market") "PRIVATE"}}>Private company (unlisted shares)</option>
         <option value="MANAGED" {{sel (index .Form "market") "MANAGED"}}>Managed fund (e.g. Vanguard unlisted)</option>
       </select></label>
     <label>Symbol <input name="symbol" required placeholder="VAS, AAPL, VAN0002AU…" value="{{index .Form "symbol"}}"></label>

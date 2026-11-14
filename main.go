@@ -27,7 +27,7 @@ type App struct {
 	modes     // real vs test data stores (see testmode.go)
 }
 
-var pageNames = []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan", "reconcile"}
+var pageNames = []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan", "reconcile", "private"}
 
 // newApp opens the data stores and parses every page template.
 func newApp(dataFile string) (*App, error) {
@@ -64,6 +64,7 @@ func (a *App) routes() http.Handler {
 	a.registerTestMode(mux)
 	a.registerPrices(mux)
 	a.registerReconcile(mux)
+	a.registerPrivate(mux)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
 		msg, err := a.RefreshNow()
@@ -204,7 +205,7 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 	fail := func(msg string) { a.txnPage(w, r, form, msg) }
 
 	market := strings.ToUpper(form["market"])
-	if market != MarketASX && market != MarketUS && market != MarketManaged {
+	if market != MarketASX && market != MarketUS && market != MarketManaged && market != MarketPrivate {
 		fail("choose a market")
 		return
 	}

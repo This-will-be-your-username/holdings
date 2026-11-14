@@ -16,6 +16,7 @@ const (
 	MarketASX     = "ASX"     // Yahoo Finance, symbol suffixed .AX
 	MarketUS      = "US"      // Yahoo Finance, bare ticker
 	MarketManaged = "MANAGED" // unlisted fund (e.g. Vanguard managed fund): manual unit prices
+	MarketPrivate = "PRIVATE" // form value for a private company; stored as a MANAGED instrument with Private set
 )
 
 type Instrument struct {
@@ -32,6 +33,11 @@ type Instrument struct {
 
 	// Unlisted Vanguard funds: Vanguard's own fund id, used to fetch unit prices (see vanguard.go).
 	VanguardPort string `json:"vg_port,omitempty"`
+
+	// Private (unlisted) companies: priced only from value checkpoints you record (see private.go).
+	Private    bool    `json:"private,omitempty"`
+	SharesOut  float64 `json:"shares_out,omitempty"`  // shares on issue (fully diluted); turns a company valuation into a price per share
+	SearchTerm string  `json:"search_term,omitempty"` // what to search for when looking for a new valuation (defaults to the name)
 }
 
 // Txn is a single user transaction. Price/Amount are in the instrument's
@@ -109,10 +115,11 @@ type DB struct {
 	Bench       map[string]map[string]float64 `json:"bench"`    // market benchmarks (indices, FX, VIX): symbol -> date -> close
 	Instruments map[string]*Instrument        `json:"instruments"`
 	Txns        []Txn                         `json:"txns"`
-	Prices      map[string]map[string]float64 `json:"prices"` // fetched closes: symbol -> date -> price
-	Manual      map[string]map[string]float64 `json:"manual"` // user-entered prices (override fetched)
-	Divs        map[string]map[string]float64 `json:"divs"`   // symbol -> ex-date -> per-unit dividend
-	FX          map[string]map[string]float64 `json:"fx"`     // currency -> date -> AUD per unit
+	Prices      map[string]map[string]float64 `json:"prices"`      // fetched closes: symbol -> date -> price
+	Manual      map[string]map[string]float64 `json:"manual"`      // user-entered prices (override fetched)
+	Checkpoints map[string][]Checkpoint       `json:"checkpoints"` // private companies: symbol -> recorded value checkpoints
+	Divs        map[string]map[string]float64 `json:"divs"`        // symbol -> ex-date -> per-unit dividend
+	FX          map[string]map[string]float64 `json:"fx"`          // currency -> date -> AUD per unit
 	LastRefresh string                        `json:"last_refresh"`
 
 	// Price-fetch bookkeeping, saved with the data so a restart doesn't re-download everything.
@@ -163,6 +170,9 @@ func (d *DB) init() {
 	}
 	if d.Manual == nil {
 		d.Manual = map[string]map[string]float64{}
+	}
+	if d.Checkpoints == nil {
+		d.Checkpoints = map[string][]Checkpoint{}
 	}
 	if d.Divs == nil {
 		d.Divs = map[string]map[string]float64{}
