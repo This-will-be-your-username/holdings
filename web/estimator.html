@@ -13,6 +13,40 @@
 {{end}}{{end}}
 {{end}}
 
+{{define "estNewLaw"}}
+<section class="card nl">
+  <div class="card-h"><h2>Before or after the 1 July 2027 CGT change?</h2><span class="tag tr-Uptrend">now law</span></div>
+  <p class="muted s">The 50% discount is replaced from 1 July 2027 (Tax Reform No. 1 Act 2026). The gain that built up <em>before</em> that date keeps the discount; growth <em>after</em> it is taxed on a CPI-indexed basis with a 30% minimum rate. This prices the same sale both ways, assuming each holding's cost base resets to <b>today's value</b> on 1 July 2027.</p>
+  {{if .AOutOfRange}}<div class="flash warnnote">Your sale date is on or after 1 July 2027, so the left column isn't a current-rules figure — choose a sale date on or before 30 June 2027.</div>{{end}}
+  <div class="scroll"><table class="nl-tbl">
+    <thead><tr><th></th><th class="r">Sell by 30 June 2027<div class="muted s">current rules</div></th><th class="r">Sell on {{.B.A.SaleDate}}<div class="muted s">new rules</div></th></tr></thead>
+    <tbody>
+      <tr><td>Sale date</td><td class="r">{{.A.Date}}</td><td class="r">{{.B.A.SaleDate}}</td></tr>
+      <tr><td>Net sale proceeds</td><td class="r">{{money .A.NetProceeds}}</td><td class="r">{{money .B.Est.NetProceeds}}{{if ne .B.A.GrowthPA 0.0}}<div class="muted s">at {{printf "%+.1f" .B.A.GrowthPA}}% a year growth</div>{{end}}</td></tr>
+      <tr><td>Capital gain / (loss) over original cost</td><td class="r {{cls .A.Sel.Gain}}">{{signed .A.Sel.Gain}}</td><td class="r {{cls .B.TotalGain}}">{{signed .B.TotalGain}}</td></tr>
+      <tr><td>…built up before 1 July 2027 <span class="muted s">(keeps the 50% discount)</span></td><td class="r muted">—</td><td class="r">{{money .B.DeferredPre}}</td></tr>
+      <tr><td>…growth after 1 July 2027 <span class="muted s">(after sale costs)</span></td><td class="r muted">—</td><td class="r">{{signed .B.PostNominal}}</td></tr>
+      <tr><td>Indexation relief <span class="muted s">(CPI, {{printf "%.1f" .B.A.CPI}}% a year)</span></td><td class="r muted">—</td><td class="r">{{if gt .B.IndexRelief 0.005}}−{{money .B.IndexRelief}}{{else}}—{{end}}</td></tr>
+      <tr><td>Capital losses applied <span class="muted s">(earlier gains first)</span></td><td class="r muted">—</td><td class="r">{{if gt .B.LossesUsed 0.005}}−{{money .B.LossesUsed}}{{else}}—{{end}}</td></tr>
+      <tr><td>50% discount</td><td class="r">{{if gt (sub .A.Sel.Gain .A.Sel.DiscountedGain) 0.005}}−{{money (sub .A.Sel.Gain .A.Sel.DiscountedGain)}}{{else}}—{{end}}</td><td class="r">{{if gt .B.Discount 0.005}}−{{money .B.Discount}}{{else}}—{{end}}</td></tr>
+      <tr><td><b>Taxable capital gain</b></td><td class="r"><b>{{money .A.Sel.NetCapGainDelta}}</b></td><td class="r"><b>{{money (addf .B.DeferredTaxable .B.PostGain)}}</b></td></tr>
+      <tr><td>30% minimum-tax top-up <span class="muted s">(on growth after 1 July 2027)</span></td><td class="r muted">—</td><td class="r">{{money .B.TopUp}}</td></tr>
+      <tr class="sel-row"><td><b>Estimated tax</b></td><td class="r"><b>{{signed .A.Sel.TaxDelta}}</b></td><td class="r"><b>{{signed .B.TaxDelta}}</b></td></tr>
+      <tr><td>Cash after tax</td><td class="r">{{money .A.Sel.AfterTax}}</td><td class="r">{{money .B.AfterTax}}</td></tr>
+    </tbody>
+  </table></div>
+  <p class="nl-sum">{{if gt .Diff 0.5}}Selling after the change would cost about <b class="neg">${{money .Diff}} more</b> in tax{{else if lt .Diff -0.5}}Selling after the change would cost about <b class="pos">${{money (abs .Diff)}} less</b> in tax{{else}}The tax is about the same either way{{end}} under these assumptions.</p>
+  <details><summary>Assumptions and what isn't settled yet</summary>
+  <ul class="muted s">
+    <li>Each holding's value just before 1 July 2027 is taken as <b>today's price</b>, so the gain to date is the discounted "deferred" gain and the new cost base starts there. Real values on that day will differ.</li>
+    <li>Growth after 1 July 2027 ({{printf "%.1f" .B.A.GrowthPA}}% a year) and CPI ({{printf "%.1f" .B.A.CPI}}% a year) are your assumptions; indexation can't create or increase a loss. With 0% growth the new rules cost the same as the old ones — the difference appears as soon as prices rise.</li>
+    <li>Indexation and the discount on the earlier gain are applied only to parcels owned more than 12 months at the sale, counted from the original purchase date. How the 12-month test works after the 1 July 2027 reset hasn't been published; if it restarts, indexation would be lost on younger parcels.</li>
+    <li>Capital losses are applied to the pre-change (deferred) gains first, then to new gains — removing today's choice that preserves the discount. The 30% floor applies only to the growth after 1 July 2027. Exemptions (e.g. income-support recipients), trusts and the ATO's guidance on valuing assets are not modelled; further legislation is still being drafted.</li>
+    <li>Sales recorded after 1 July 2027 on the Tax page are still calculated under the current rules.</li>
+  </ul></details>
+</section>
+{{end}}
+
 {{define "estLines"}}
 <section class="card">
   <div class="card-h"><h2>What you're selling</h2></div>
@@ -63,6 +97,12 @@
       </div>
     {{end}}
     </div>
+    <details class="newlaw-opts"><summary>New rules from 1 July 2027 — assumptions for the comparison</summary>
+      <div class="raise-grid">
+        <label>Sale date under the new rules <small>(on or after 1 Jul 2027)</small><input type="date" name="post_date" value="{{.PostDate}}"></label>
+        <label>Price growth after 1 Jul 2027 <small>(% a year)</small><input name="post_growth" inputmode="decimal" value="{{.PostGrowth}}" placeholder="0"></label>
+        <label>CPI for indexation <small>(% a year)</small><input name="cpi" inputmode="decimal" value="{{.PostCPI}}" placeholder="2.5"></label>
+      </div></details>
     <div class="est-actions">
       <button type="button" class="btn" id="add-row">+ Sell another holding</button>
       <label class="inl">Sale date <input type="date" name="date" value="{{.Date}}"></label>
@@ -75,6 +115,7 @@
 
 {{with .Est}}
 {{template "estTiles" .}}
+{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{if .NL}}{{template "estNewLaw" .NL}}{{end}}
 {{template "estLines" .}}
 
 <section class="card">
@@ -128,6 +169,12 @@
     <fieldset class="holds"><legend>Sell from</legend>
       {{range .HoldOpts}}<label class="check"><input type="checkbox" name="only" value="{{.Symbol}}" {{if .Checked}}checked{{end}}> <b>{{short .Symbol}}</b> <span class="muted s">{{pctn .ReturnPct}} return · ${{money0 .Value}}</span></label>{{end}}
     </fieldset>
+    <details class="newlaw-opts"><summary>New rules from 1 July 2027 — assumptions for the comparison</summary>
+      <div class="raise-grid">
+        <label>Sale date under the new rules <small>(on or after 1 Jul 2027)</small><input type="date" name="post_date" value="{{.PostDate}}"></label>
+        <label>Price growth after 1 Jul 2027 <small>(% a year)</small><input name="post_growth" inputmode="decimal" value="{{.PostGrowth}}" placeholder="0"></label>
+        <label>CPI for indexation <small>(% a year)</small><input name="cpi" inputmode="decimal" value="{{.PostCPI}}" placeholder="2.5"></label>
+      </div></details>
     <div class="est-actions"><button class="btn primary">Plan my withdrawal</button></div>
   </form>
   <p class="muted s">The planner puts <b>balance first</b>: it sells what is overweight against your <a class="link" href="/plan">target allocation</a> so you end up as close to your intended mix as possible. It then nudges each target by how that holding is doing against <em>its own purpose</em> — a long-term holding that is only part-way through its horizon is barely marked down. Within each holding it uses parcels held over 12 months first (50% CGT discount), lowest tax first. Listed securities are sold in whole units, so the total can be a little over.</p>
@@ -141,6 +188,7 @@
   {{if $sel.Plan.NoTargets}}<p class="muted s">No target allocation is set, so your current mix is treated as the target. <a class="link" href="/plan">Set your target mix →</a></p>{{end}}
 </section>
 {{template "estTiles" $sel.Est}}
+{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{if $sel.Est.NL}}{{template "estNewLaw" $sel.Est.NL}}{{end}}
 {{template "estLines" $sel.Est}}
 
 <section class="card">
@@ -214,7 +262,7 @@
     <li>Sale price defaults to the latest price (US holdings are converted at today's AUD rate; override either). A future date uses today's prices.</li>
     <li>The 50% discount applies to parcels owned more than 12 months. Capital losses (including ones carried forward from earlier years) are applied to full-rate gains first, then to discount gains.</li>
     <li>Choosing parcels other than first-in-first-out only holds up if you identify them with your broker when you sell; otherwise the ATO assumes first in, first out.</li>
-    <li>Not tax advice. See the <a class="link" href="/tax">Tax page</a> for what's modelled — including the proposed 2027 change to the CGT discount that isn't reflected here.</li>
+    <li>Not tax advice. See the <a class="link" href="/tax">Tax page</a> for what's modelled. The comparison card shows the same sale under the CGT rules that start on 1 July 2027.</li>
   </ul>
 </section>
 {{end}}

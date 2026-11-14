@@ -51,6 +51,7 @@ type Estimate struct {
 	MethodsDiffer                    bool
 	Wait                             *WaitResult
 	Future                           bool
+	NL                               *NewLawView // the same sale under the CGT rules from 1 July 2027 (set by the page handler)
 }
 
 var methodOrder = []string{"fifo", "hifo", "optimal"}
@@ -156,7 +157,7 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 	baseTR := ComputeTax(db, base.Rows, now)
 	baseFY := baseTR.ByFY[fy]
 	if baseFY == nil {
-		baseFY = ComputeTaxEmpty(db, fy)
+		baseFY = ComputeTaxEmptyAfter(baseTR, db, fy)
 	}
 
 	est := &Estimate{Date: date, FY: fy, Base: baseFY, Lines: lines, Future: date > now.Format(dateFmt)}
@@ -168,7 +169,7 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 		res, tr := run(m, date)
 		y := tr.ByFY[fy]
 		if y == nil {
-			y = ComputeTaxEmpty(db, fy)
+			y = ComputeTaxEmptyAfter(tr, db, fy)
 		}
 		mr := &MethodResult{Method: m, Label: methodLabels[m]}
 		for _, e := range tr.All {
@@ -232,11 +233,11 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 		wfy := fyOf(wd)
 		y := tr.ByFY[wfy]
 		if y == nil {
-			y = ComputeTaxEmpty(db, wfy)
+			y = ComputeTaxEmptyAfter(tr, db, wfy)
 		}
 		b := baseTR.ByFY[wfy]
 		if b == nil {
-			b = ComputeTaxEmpty(db, wfy)
+			b = ComputeTaxEmptyAfter(baseTR, db, wfy)
 		}
 		delta := y.NetPayable - b.NetPayable
 		est.Wait = &WaitResult{Date: wd, Days: int(waitDate.Sub(parseDay(date)).Hours() / 24), Parcels: n,
@@ -249,6 +250,18 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 // for years the real records don't touch yet.
 func ComputeTaxEmpty(db *DB, fy string) *FYTax {
 	return &FYTax{FY: fy, OtherIncome: db.Settings.OtherIncome}
+}
+
+// ComputeTaxEmptyAfter is an untouched income year that still inherits the capital losses carried
+// forward from the latest earlier year in tr.
+func ComputeTaxEmptyAfter(tr *TaxResult, db *DB, fy string) *FYTax {
+	y := ComputeTaxEmpty(db, fy)
+	for _, p := range tr.FYs {
+		if p.FY < fy {
+			y.LossBroughtFwd = p.LossCarriedFwd
+		}
+	}
+	return y
 }
 
 func parseDay(s string) time.Time { t, _ := time.Parse(dateFmt, s); return t }
@@ -311,10 +324,24 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]any{"Holdings": res.Holdings, "Rows": rows, "Date": date, "Method": method,
 		"Today": time.Now().Format(dateFmt), "Methods": methodOrder, "Labels": methodLabels, "Mode": "sell"}
+	nl, nlForm := newLawFromForm(r)
+	for k, v := range nlForm {
+		data[k] = v
+	}
 	if r.FormValue("run") != "" {
 		var est *Estimate
 		var err error
-		a.st().View(func(db *DB) { est, err = EstimateSale(db, reqs, date, method, time.Now()) })
+		a.st().View(func(db *DB) {
+			now := time.Now()
+			est, err = EstimateSale(db, reqs, date, method, now)
+			if err == nil {
+				var nerr error
+				est.NL, nerr = CompareNewLaw(db, est, nil, est.Sel.Method, nl, now)
+				if nerr != nil {
+					data["NLErr"] = nerr.Error()
+				}
+			}
+		})
 		if err != nil {
 			data["Err"] = err.Error()
 		} else {

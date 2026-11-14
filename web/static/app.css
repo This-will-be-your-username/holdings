@@ -194,3 +194,12 @@ body.is-test .top{border-bottom:2px solid var(--warn)}
 .plan-total{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:12px 0}
 .plan-total b.bad{color:var(--neg)} .plan-total b.ok{color:var(--pos)}
 @media (max-width:720px){.plan-tbl select,.plan-tbl input{width:100%;min-width:0}}
+
+/* ===== new-rules comparison ===== */
+.nl .nl-sum{margin:12px 0 4px;font-size:15px}
+.nl-tbl th{vertical-align:bottom}
+details.newlaw-opts{border:1px dashed var(--line);border-radius:10px;padding:8px 14px;margin:10px 0 12px}
+details.newlaw-opts summary{cursor:pointer;color:var(--muted);font-size:13.5px;font-weight:550}
+details.newlaw-opts .raise-grid{margin:12px 0 4px;grid-template-columns:repeat(3,1fr)}
+@media (max-width:720px){details.newlaw-opts .raise-grid{grid-template-columns:1fr}}
+.nl details{margin-top:8px} .nl details summary{cursor:pointer;color:var(--muted);font-size:13px}

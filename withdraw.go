@@ -563,6 +563,10 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 		"Amount": strings.TrimSpace(r.FormValue("amount")), "Brokerage": strings.TrimSpace(r.FormValue("brokerage")),
 		"AfterTax": r.FormValue("after_tax") == "1",
 	}
+	nl, nlForm := newLawFromForm(r)
+	for k, v := range nlForm {
+		data[k] = v
+	}
 	if r.FormValue("run") != "" {
 		o := WithdrawOpts{Target: pnum(r.FormValue("amount")), AfterTax: r.FormValue("after_tax") == "1",
 			Brokerage: pnum(r.FormValue("brokerage")), Date: date, Strategy: strategy}
@@ -576,7 +580,20 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 		}
 		var wr *WithdrawResult
 		var err error
-		a.st().View(func(db *DB) { wr, err = WithdrawalPlans(db, o, now) })
+		a.st().View(func(db *DB) {
+			wr, err = WithdrawalPlans(db, o, now)
+			if err == nil {
+				picks := map[string][]Pick{}
+				for _, rq := range wr.Sel.Plan.Reqs {
+					picks[rq.Symbol] = rq.Picks
+				}
+				var nerr error
+				wr.Sel.Est.NL, nerr = CompareNewLaw(db, wr.Sel.Est, picks, "plan", nl, now)
+				if nerr != nil {
+					data["NLErr"] = nerr.Error()
+				}
+			}
+		})
 		if err != nil {
 			data["Err"] = err.Error()
 		} else {

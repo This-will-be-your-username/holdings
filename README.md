@@ -31,7 +31,7 @@ Run `go test ./...` for the calculation tests.
   other income, less franking and foreign tax offsets. Rates: 2025-26 16%, 2026-27 15%, 2027-28+ 14% first bracket.
 - **Exports:** `/export/tax-summary.csv`, `/export/tax-distributions.csv?fy=2025-26`, `/export/tax-cgt.csv?fy=2025-26`.
 - Not modelled: Medicare low-income reduction/surcharge, HELP, deductions, companies/trusts/SMSF/joint holdings,
-  and the proposed post-1 July 2027 CGT indexation regime (not law at last check). Estimates only, not tax advice.
+  and sales recorded on or after 1 July 2027 (the Tax page still applies the current rules to them; use the Sell estimator to compare). Estimates only, not tax advice.
 
 ## Sell estimator (`/estimator`)
 "What would selling these cost me in tax?" Add hypothetical sales (units, `all`, or a dollar target; optional
@@ -121,3 +121,17 @@ the test data so you can try the importer's duplicate handling (already recorded
 
 Test mode also seeds a target allocation (VGS 30%, VDHG 30%, VDGR 25%, VAN0110AU 15%) that deliberately differs
 from the current mix, so a withdrawal has something to rebalance.
+
+## CGT before vs after 1 July 2027
+The CGT reform (Treasury Laws Amendment (Tax Reform No. 1) Act 2026, Royal Assent 26 June 2026) replaces the 50%
+discount from 1 July 2027. Both the **Sell estimator** and the **Withdraw an amount** planner now price the same sale
+under both sets of rules side by side:
+- **Current rules** (sell by 30 June 2027): 50% discount on parcels held over 12 months.
+- **New rules** (sell on/after 1 July 2027): each holding is treated as re-acquired at its value just before
+  1 July 2027 - assumed here to be **today's price** ("the new cost base sits at the current value"). The gain built up
+  to then is deferred and keeps the 50% discount; growth after it is taxed on a CPI-indexed basis (indexation can't create
+  or enlarge a loss) with a **30% minimum tax** top-up on that growth. Capital losses are applied to the deferred gains first.
+Assumptions you can change (a collapsible panel on both forms): sale date under the new rules, price growth after
+1 July 2027 (% a year, default 0 - with no growth the two regimes cost the same; the gap appears as soon as prices rise)
+and CPI (default 2.5%). Not modelled: the minimum-tax exemption for income-support recipients, trusts, valuation by the
+ATO's apportionment method, and how the 12-month test works after the reset (original purchase date is assumed).

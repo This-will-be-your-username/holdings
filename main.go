@@ -27,17 +27,26 @@ type App struct {
 	modes     // real vs test data stores (see testmode.go)
 }
 
-func main() {
-	addr := env("ADDR", "127.0.0.1:8080")
-	dataFile := env("DATA_FILE", "data/fundtrack.json")
+var pageNames = []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan"}
+
+// newApp opens the data stores and parses every page template.
+func newApp(dataFile string) (*App, error) {
 	a := &App{pages: map[string]*template.Template{}}
 	if err := a.initModes(dataFile); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	for _, p := range []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan"} {
-		a.pages[p] = template.Must(template.New("").Funcs(funcs).ParseFS(webFS, "web/base.html", "web/"+p+".html"))
+	for _, p := range pageNames {
+		tpl, err := template.New("").Funcs(funcs).ParseFS(webFS, "web/base.html", "web/"+p+".html")
+		if err != nil {
+			return nil, fmt.Errorf("template %s: %w", p, err)
+		}
+		a.pages[p] = tpl
 	}
+	return a, nil
+}
 
+// routes is the whole HTTP surface.
+func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.dashboard)
 	mux.HandleFunc("GET /transactions", func(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +81,16 @@ func main() {
 	a.registerTax(mux)
 	static, _ := fs.Sub(webFS, "web/static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	return withGzip(mux)
+}
+
+func main() {
+	addr := env("ADDR", "127.0.0.1:8080")
+	dataFile := env("DATA_FILE", "data/fundtrack.json")
+	a, err := newApp(dataFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	go func() {
 		for {
@@ -83,7 +102,7 @@ func main() {
 	}()
 
 	log.Printf("fundtrack listening on http://%s (data: %s)", addr, dataFile)
-	log.Fatal(http.ListenAndServe(addr, withGzip(mux)))
+	log.Fatal(http.ListenAndServe(addr, a.routes()))
 }
 
 func env(k, d string) string {
@@ -356,6 +375,7 @@ var funcs = template.FuncMap{
 	},
 	"short": func(s string) string { return strings.TrimSuffix(s, ".AX") },
 	"abs":   math.Abs,
+	"sub":   func(a, b float64) float64 { return a - b },
 	"pc":    func(v float64) string { return fmt.Sprintf("%.1f%%", v*100) },
 	"pp": func(v float64) string { // signed percentage points
 		if v > 0.05 {
@@ -369,7 +389,6 @@ var funcs = template.FuncMap{
 		}
 		return strconv.FormatFloat(math.Round(v*1000)/10, 'f', -1, 64)
 	},
-	"sub": func(a, b float64) float64 { return a - b },
 	"pcg": func(v, base float64) float64 { // % change of v over base
 		if base == 0 {
 			return 0
