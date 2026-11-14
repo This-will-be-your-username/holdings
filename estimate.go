@@ -280,6 +280,10 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 		a.raisePage(w, r)
 		return
 	}
+	if r.FormValue("mode") == "all" {
+		a.sellAllPage(w, r)
+		return
+	}
 	var res *Result
 	var set Settings
 	a.st().View(func(db *DB) { res = Compute(db, time.Now()); set = db.Settings })

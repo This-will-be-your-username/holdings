@@ -239,6 +239,60 @@
 {{end}}
 {{end}}
 
+{{define "all"}}
+<section class="card">
+  <form method="get" action="/estimator" class="inline">
+    <input type="hidden" name="mode" value="all">
+    <label class="inl">If I sold everything on <input type="date" name="date" value="{{.Date}}"></label>
+    <button class="btn primary">Recalculate</button>
+  </form>
+  <p class="muted s">Worked out as if every holding were sold in one go and the gain were taxed at the <b>top</b> marginal rate. Gains on parcels held over 12 months get the 50% discount; younger parcels are taxed in full; losses are set against gains first. Your own income and tax bracket are ignored, so this is a worst case.</p>
+</section>
+
+{{with .SA}}
+{{if .PrivateHeld}}<div class="flash warnnote">Includes private holdings valued at their latest checkpoint ({{range $i, $n := .PrivateHeld}}{{if $i}}, {{end}}{{$n}}{{end}}). These can't be sold on demand, so treat their figures as paper values.</div>{{end}}
+<section class="stats">
+  <div class="card stat"><span class="lbl">You&rsquo;d pocket</span><span class="big pos">${{money .Pocket}}</span><span class="sub">after brokerage and tax · {{.Date}}{{if .Est.Future}} (future date, today's prices){{end}}</span></div>
+  <div class="card stat"><span class="lbl">Tax owed</span><span class="big {{if gt .Tax 0.005}}neg{{end}}">${{money .Tax}}</span><span class="sub">for {{.FY}} at the top rate ({{printf "%.0f" (mulf .Rate 100.0)}}% incl. Medicare)</span></div>
+  <div class="card stat"><span class="lbl">Sale proceeds</span><span class="big">${{money .Est.NetProceeds}}</span><span class="sub">{{if .Est.Fees}}after ${{money .Est.Fees}} brokerage{{else}}before brokerage{{end}}</span></div>
+  <div class="card stat"><span class="lbl">Net capital gain</span><span class="big {{cls .Est.Sel.Gain}}">{{signed .Est.Sel.Gain}}</span><span class="sub">before discount and losses</span></div>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>How the tax is worked out</h2></div>
+  <div class="scroll"><table>
+    <tbody>
+      <tr><td>Long-term gains <span class="muted s">(held over 12 months)</span></td><td class="r">{{money .LongGain}}</td></tr>
+      <tr><td>Short-term gains <span class="muted s">(held 12 months or less, taxed in full)</span></td><td class="r">{{money .ShortGain}}</td></tr>
+      <tr><td>Capital losses on this sale</td><td class="r">{{if gt .Losses 0.005}}−{{money .Losses}}{{else}}—{{end}}</td></tr>
+      {{if gt .ExistingLossesUsed 0.005}}<tr><td>Earlier capital losses used</td><td class="r">−{{money .ExistingLossesUsed}}</td></tr>{{end}}
+      <tr><td>50% discount on long-term gains</td><td class="r">{{if gt .Discount 0.005}}−{{money .Discount}}{{else}}—{{end}}</td></tr>
+      <tr class="sel-row"><td><b>Taxable capital gain</b></td><td class="r"><b>{{money .Taxable}}</b></td></tr>
+      <tr><td>Tax at {{printf "%.0f" (mulf .Rate 100.0)}}% <span class="muted s">(45% + 2% Medicare levy)</span></td><td class="r"><b>${{money .Tax}}</b></td></tr>
+      <tr><td><b>Cash in your pocket</b> <span class="muted s">(proceeds − tax)</span></td><td class="r"><b>${{money .Pocket}}</b></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted s">Tax is the extra tax this sale adds to {{.FY}}, including any distributions already recorded for the year. Not tax advice.</p>
+</section>
+
+<section class="card">
+  <div class="card-h"><h2>By holding</h2></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Holding</th><th class="r">Proceeds</th><th class="r">Cost base</th><th class="r">Long-term gain</th><th class="r">Short-term gain</th><th class="r">Losses</th></tr></thead>
+    <tbody>{{range .Rows}}<tr>
+      <td><b>{{short .Symbol}}</b>{{if .Private}} <span class="tag">private</span>{{end}}<div class="muted s">{{.Name}} · {{units .Units}} units</div></td>
+      <td class="r">{{money .Proceeds}}</td><td class="r">{{money .Cost}}</td>
+      <td class="r">{{if gt .Long 0.005}}{{money .Long}}{{else}}—{{end}}</td>
+      <td class="r">{{if gt .Short 0.005}}{{money .Short}}{{else}}—{{end}}</td>
+      <td class="r">{{if or (gt .LongLoss 0.005) (gt .ShortLoss 0.005)}}−{{money (addf .LongLoss .ShortLoss)}}{{else}}—{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{if .Est.NL}}{{template "estNewLaw" .Est.NL}}{{end}}
+{{template "estEffect" .Est}}
+{{end}}
+{{end}}
+
 {{define "content"}}
 <div class="head">
   <div><h1>Sell estimator</h1>
@@ -246,7 +300,8 @@
 </div>
 
 <nav class="tabs" aria-label="Estimator mode">
-  <a href="/estimator" class="{{if ne .Mode "raise"}}on{{end}}">Sell specific holdings</a>
+  <a href="/estimator" class="{{if eq .Mode "sell"}}on{{end}}">Sell specific holdings</a>
+  <a href="/estimator?mode=all" class="{{if eq .Mode "all"}}on{{end}}">Sell everything</a>
   <a href="/estimator?mode=raise" class="{{if eq .Mode "raise"}}on{{end}}">Withdraw an amount</a>
   <a href="/plan">Target allocation</a>
 </nav>
@@ -254,7 +309,7 @@
 {{if not .Holdings}}
 <div class="card empty"><h2>No open holdings</h2><p>Record some purchases first, then come back to estimate a sale.</p><a class="btn primary" href="/transactions#add">Add a transaction</a></div>
 {{else}}
-{{if eq .Mode "raise"}}{{template "raise" .}}{{else}}{{template "sell" .}}{{end}}
+{{if eq .Mode "raise"}}{{template "raise" .}}{{else if eq .Mode "all"}}{{template "all" .}}{{else}}{{template "sell" .}}{{end}}
 
 <section class="card note">
   <h2>About this estimate</h2>
@@ -267,7 +322,7 @@
 </section>
 {{end}}
 
-{{if ne .Mode "raise"}}
+{{if eq .Mode "sell"}}
 <script>
 (function(){
   var rows=document.getElementById('sale-rows'); if(!rows) return;

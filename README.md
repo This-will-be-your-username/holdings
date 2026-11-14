@@ -183,3 +183,7 @@ Exchange rates are refreshed automatically when the last pull is over 24 hours o
 ## RSUs and awarded shares
 
 Import actions such as *Release*, *Vest* or *Award* are recognised as **shares awarded**, not purchases. Units are added at the market value on the vest date, which becomes the cost base and the date the 12-month CGT discount clock starts. For performance they are treated as invested at that value, so gains are measured from vest. Sell-to-cover rows import as ordinary sales.
+
+## Sell everything
+
+The **Sell everything** tab on the Sell estimator prices selling every holding at once, with the gain taxed at the top marginal rate (47% including Medicare) whatever your own income is. It splits gains into long-term (over 12 months, 50% discount) and short-term, applies losses, and shows the tax owed and the cash you would keep.
