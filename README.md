@@ -177,3 +177,5 @@ Foreign holdings are converted to AUD using ECB rates from Frankfurter. Each ref
 ## Chart explorer
 
 The **Charts** page plots your total value or any mix of investments (optionally combined into one line, with money invested overlaid). Metrics: value, gain/loss (value minus net invested) and a price index rebased to 100 so investments compare fairly. Pick a common range (1M, 3M, 6M, YTD, financial year, 1Y, 3Y, 5Y, All) or enter exact dates; drag across the chart to highlight a period, see its start, end and change per line, and zoom in on it. Your selection is remembered in the browser.
+
+Exchange rates are refreshed automatically when the last pull is over 24 hours old (checked every 30 minutes), and can be refreshed on demand with the button on the Fund prices page. A failed pull doesn't reset the 24-hour clock.

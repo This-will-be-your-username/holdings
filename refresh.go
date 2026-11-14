@@ -59,8 +59,6 @@ func (a *App) refresh(force bool) (string, error) {
 	var jobs, benchJobs []job
 	var managed []*Instrument
 	asxDue := map[string]bool{}
-	fxFrom := map[string]time.Time{}
-	fxHave := map[string][2]string{}
 	a.st().View(func(db *DB) {
 		earliest := map[string]string{}
 		for _, t := range db.Txns {
@@ -75,11 +73,6 @@ func (a *App) refresh(force bool) (string, error) {
 				continue
 			}
 			d, _ := time.Parse(dateFmt, e)
-			if inst.Currency != "AUD" && inst.Currency != "" { // every foreign holding needs rates, listed or not
-				if f, ok := fxFrom[inst.Currency]; !ok || d.Before(f) {
-					fxFrom[inst.Currency] = d
-				}
-			}
 			if inst.Market == MarketManaged {
 				continue
 			}
@@ -95,12 +88,6 @@ func (a *App) refresh(force bool) (string, error) {
 		if len(jobs) > 0 {
 			for sym := range benchmarks {
 				benchJobs = append(benchJobs, job{sym, incrementalFrom(db.Bench[sym], limit)})
-			}
-		}
-		for ccy := range fxFrom {
-			s := newSeries(db.FX[ccy])
-			if len(s.D) > 0 {
-				fxHave[ccy] = [2]string{s.D[0], s.D[len(s.D)-1]}
 			}
 		}
 		managed = managedDue(db, force, now)
@@ -173,28 +160,8 @@ func (a *App) refresh(force bool) (string, error) {
 		vg[inst.Symbol] = vgResult{f.PortID, f.Name, nav}
 	}
 
-	fxData := map[string]map[string]float64{}
-	for ccy, e := range fxFrom {
-		from := e.AddDate(0, 0, -10)
-		if h, ok := fxHave[ccy]; ok && h[0] <= from.Format(dateFmt) {
-			last, _ := time.Parse(dateFmt, h[1])
-			from = last.AddDate(0, 0, -10) // incremental
-		}
-		m, err := fetchFX(ccy, from, now)
-		if err != nil {
-			fail(err)
-		}
-		if d, rate, lerr := fetchFXLatest(ccy); lerr == nil { // the newest published rate, even if the range call missed it
-			if m == nil {
-				m = map[string]float64{}
-			}
-			m[d] = rate
-		} else if len(m) == 0 {
-			fail(lerr)
-		}
-		if len(m) > 0 {
-			fxData[ccy] = m
-		}
+	if _, ferr := a.refreshFXLocked(force); ferr != nil { // exchange rates: only when due (24h) or forced
+		fail(ferr)
 	}
 
 	stamp := now.Format(time.RFC3339)
@@ -247,16 +214,8 @@ func (a *App) refresh(force bool) (string, error) {
 			}
 			db.PriceAt["vg:"+sym] = stamp
 		}
-		for ccy, m := range fxData {
-			if db.FX[ccy] == nil {
-				db.FX[ccy] = map[string]float64{}
-			}
-			for d, v := range m {
-				db.FX[ccy][d] = v
-			}
-		}
 		// "last refreshed" only moves when something really updated
-		if updated > 0 || len(bench) > 0 || len(fxData) > 0 {
+		if updated > 0 || len(bench) > 0 {
 			db.LastRefresh = stamp
 		}
 		db.RefreshAt = stamp

@@ -80,3 +80,81 @@ func TestConvertCandidateThroughAUD(t *testing.T) {
 		t.Fatal("no EUR rate saved, so it must not be converted")
 	}
 }
+
+func TestFXRefreshesOnlyWhenOlderThan24Hours(t *testing.T) {
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if strings.HasPrefix(r.URL.Path, "/latest") {
+			fmt.Fprint(w, `{"base":"USD","date":"2026-11-13","rates":{"AUD":1.6}}`)
+			return
+		}
+		fmt.Fprint(w, `{"base":"USD","rates":{"2026-11-12":{"AUD":1.59},"2026-11-13":{"AUD":1.6}}}`)
+	}))
+	defer srv.Close()
+	old := fxBase
+	fxBase = srv.URL
+	defer func() { fxBase = old }()
+
+	a, err := newApp(t.TempDir() + "/d.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.st().Update(func(db *DB) error {
+		db.Instruments["AAPL"] = &Instrument{Symbol: "AAPL", Name: "Apple", Currency: "USD", Market: MarketUS}
+		db.Txns = []Txn{{ID: "1", Date: time.Now().AddDate(0, 0, -5).Format(dateFmt), Symbol: "AAPL", Type: "buy", Units: 1, Price: 100}}
+		return nil
+	})
+	if _, err := a.RefreshFX(false); err != nil || calls == 0 {
+		t.Fatalf("first pull should fetch: %v calls=%d", err, calls)
+	}
+	n := calls
+	if msg, _ := a.RefreshFX(false); msg != "" || calls != n {
+		t.Fatalf("a pull within 24h must not call the service (calls %d -> %d)", n, calls)
+	}
+	a.st().Update(func(db *DB) error {
+		db.PriceAt[fxStamp] = time.Now().Add(-25 * time.Hour).Format(time.RFC3339)
+		return nil
+	})
+	if _, err := a.RefreshFX(false); err != nil || calls == n {
+		t.Fatalf("a pull over 24h old should fetch again (calls %d)", calls)
+	}
+	n = calls
+	if _, err := a.RefreshFX(true); err != nil || calls == n {
+		t.Fatal("force should always fetch")
+	}
+	// the manual button
+	r := httptest.NewRecorder()
+	n = calls
+	a.routes().ServeHTTP(r, httptest.NewRequest("POST", "/prices/fx", nil))
+	if r.Code != 303 || calls == n || strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("button: %d %s calls %d", r.Code, r.Header().Get("Location"), calls)
+	}
+	body := httptest.NewRecorder()
+	a.routes().ServeHTTP(body, httptest.NewRequest("GET", "/prices", nil))
+	if !strings.Contains(body.Body.String(), "as at 2026-11-13") || !strings.Contains(body.Body.String(), "1.6000") {
+		t.Fatal("prices page should show the saved rate")
+	}
+}
+
+func TestFXFailureDoesNotResetClock(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "down", 500) }))
+	defer srv.Close()
+	old := fxBase
+	fxBase = srv.URL
+	defer func() { fxBase = old }()
+	a, _ := newApp(t.TempDir() + "/d.json")
+	a.st().Update(func(db *DB) error {
+		db.Instruments["AAPL"] = &Instrument{Symbol: "AAPL", Currency: "USD", Market: MarketUS}
+		db.Txns = []Txn{{ID: "1", Date: "2026-11-01", Symbol: "AAPL", Type: "buy", Units: 1, Price: 1}}
+		return nil
+	})
+	if _, err := a.RefreshFX(false); err == nil {
+		t.Fatal("expected an error")
+	}
+	var stamp string
+	a.st().View(func(db *DB) { stamp = db.PriceAt[fxStamp] })
+	if stamp != "" {
+		t.Fatal("a failed pull must not mark rates as fresh")
+	}
+}

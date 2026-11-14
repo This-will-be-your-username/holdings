@@ -13,6 +13,7 @@ import (
 func (a *App) registerPrices(mux *http.ServeMux) {
 	mux.HandleFunc("GET /prices", a.pricesPage)
 	mux.HandleFunc("POST /prices/fetch", a.fetchFundPrices)
+	mux.HandleFunc("POST /prices/fx", a.refreshFXHandler)
 	mux.HandleFunc("POST /prices/import", a.importFundPrices)
 	mux.HandleFunc("POST /prices/port", a.saveFundPort)
 	mux.HandleFunc("GET /api/live", a.liveAPI)
@@ -66,7 +67,9 @@ func (a *App) pricesPage(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 	sort.Slice(funds, func(i, j int) bool { return funds[i].Symbol < funds[j].Symbol })
-	a.render(w, r, "prices", map[string]any{"Funds": funds, "Today": time.Now().Format(dateFmt), "TestMode": a.inTest()})
+	var fx fxStatus
+	a.st().View(func(db *DB) { fx = buildFXStatus(db, time.Now()) })
+	a.render(w, r, "prices", map[string]any{"FX": fx, "Funds": funds, "Today": time.Now().Format(dateFmt), "TestMode": a.inTest()})
 }
 
 // fetchFundPrices pulls a fund's unit prices from Vanguard now.

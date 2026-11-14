@@ -2,6 +2,19 @@
 <div class="head"><div><h1>Fund prices</h1>
 <p class="muted">Listed ETFs and shares are priced automatically (live while the market is open). Unlisted funds are priced here — Vanguard funds are fetched straight from Vanguard by their APIR code, or you can import a price history.</p></div></div>
 
+<section class="card" id="fx">
+  <div class="card-h"><h2>Exchange rates</h2>
+    <span class="muted s">{{if .FX.At}}last pulled {{.FX.At}}{{else}}not pulled yet{{end}} · refreshed automatically when over 24 hours old</span></div>
+  <div class="fund-status">
+    {{range .FX.Rows}}<div><span class="lbl">{{.Ccy}} → AUD</span><br><b>{{printf "%.4f" .Rate}}</b> <span class="muted s">as at {{.Date}}</span></div>
+    {{else}}<div class="muted">No foreign-currency holdings, so no exchange rates are needed.</div>{{end}}
+  </div>
+  <div class="fund-actions">
+    <form method="post" action="/prices/fx"><button class="btn primary" {{if $.TestMode}}disabled title="Test mode uses simulated rates"{{end}}>↻ Refresh exchange rates now</button></form>
+  </div>
+  <p class="muted s">Rates come from the European Central Bank (via Frankfurter), published once each business day.</p>
+</section>
+
 {{range .Funds}}
 <section class="card">
   <div class="card-h"><h2>{{.Name}} <span class="tag">{{.Symbol}}</span></h2>
