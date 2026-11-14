@@ -107,7 +107,7 @@ func heldListed(db *DB, all bool) map[string]*Instrument {
 	for _, t := range db.Txns {
 		seen[t.Symbol] = true
 		switch t.Type {
-		case "buy", "drp":
+		case "buy", "drp", "award":
 			units[t.Symbol] += t.Units
 		case "sell":
 			units[t.Symbol] -= t.Units

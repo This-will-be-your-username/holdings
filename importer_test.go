@@ -451,3 +451,58 @@ func TestOwnExportRoundTripsExactly(t *testing.T) {
 		}
 	}
 }
+
+func TestClassifyRSURelease(t *testing.T) {
+	for _, s := range []string{"Release", "RSU Release", "Stock Award", "Shares vested", "Restricted Stock Unit Vest", "RSU vesting", "Award"} {
+		if typ, ig, ok := classifyType(s); typ != "award" || ig || !ok {
+			t.Errorf("classifyType(%q) = %q ignore=%v ok=%v, want award", s, typ, ig, ok)
+		}
+	}
+	// ordinary wording must be unaffected
+	for s, want := range map[string]string{"Buy": "buy", "Sell to cover": "sell", "Reinvestment": "drp", "Dividend": "dividend"} {
+		if typ, _, _ := classifyType(s); typ != want {
+			t.Errorf("classifyType(%q) = %q, want %q", s, typ, want)
+		}
+	}
+}
+
+func TestImportRSUReleaseRows(t *testing.T) {
+	an := analyze(t, `Date,Action,Symbol,Quantity,Price,Currency
+15/03/2026,Release,ACME,40,12.50,USD
+16/03/2026,Sell to cover,ACME,14,12.60,USD
+`)
+	var ts []Txn
+	for _, r := range an.Rows {
+		if r.Status == "ok" {
+			ts = append(ts, r.Txn)
+		}
+	}
+	if len(ts) != 2 || ts[0].Type != "award" || ts[0].Units != 40 || ts[0].Price != 12.5 || ts[1].Type != "sell" {
+		t.Fatalf("rows: %+v (%+v)", ts, an.Rows)
+	}
+	if !strings.Contains(ts[0].Notes, "RSU") {
+		t.Fatalf("note: %q", ts[0].Notes)
+	}
+}
+
+func TestAwardCountsLikeAPurchaseAtVestValue(t *testing.T) {
+	db := &DB{}
+	db.init()
+	db.Instruments["ACME"] = &Instrument{Symbol: "ACME", Name: "Acme", Currency: "AUD", Market: MarketUS}
+	db.Txns = []Txn{{ID: "1", Date: "2025-01-10", Symbol: "ACME", Type: "award", Units: 100, Price: 10}}
+	db.Prices["ACME"] = map[string]float64{"2026-11-13": 15}
+	res := Compute(db, time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC))
+	h := res.Holdings[0]
+	if h.Units != 100 || h.CostAUD != 1000 || h.ValueAUD != 1500 || h.Unrealised != 500 {
+		t.Fatalf("holding %+v", h)
+	}
+	for _, w := range res.Warnings {
+		if strings.Contains(w, "reinvestment") {
+			t.Fatalf("an award must not trigger the missing-history warning: %s", w)
+		}
+	}
+	// the parcel is dated the vest day, so after 12 months it qualifies for the CGT discount
+	if err := validateTxn(&db.Txns[0]); err != nil {
+		t.Fatal(err)
+	}
+}

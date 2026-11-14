@@ -424,7 +424,7 @@ var funcs = template.FuncMap{
 		return m
 	},
 	"typeLabel": func(t string) string {
-		return map[string]string{"buy": "Buy", "sell": "Sell", "dividend": "Distribution", "drp": "Reinvested"}[t]
+		return map[string]string{"buy": "Buy", "sell": "Sell", "dividend": "Distribution", "drp": "Reinvested", "award": "Award (RSU)"}[t]
 	},
 	"sel": func(a, b string) string {
 		if a == b {

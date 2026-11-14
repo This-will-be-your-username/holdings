@@ -81,7 +81,7 @@ func pnum(s string) float64 {
 
 func validateTxn(t *Txn) error {
 	switch t.Type {
-	case "buy", "sell", "drp":
+	case "buy", "sell", "drp", "award":
 		if t.Units <= 0 {
 			return fmt.Errorf("units must be > 0")
 		}
@@ -93,7 +93,7 @@ func validateTxn(t *Txn) error {
 			return fmt.Errorf("dividend amount must be > 0")
 		}
 	default:
-		return fmt.Errorf("type must be buy, sell, dividend or drp")
+		return fmt.Errorf("type must be buy, sell, award, dividend or drp")
 	}
 	if t.Fees < 0 || t.FX < 0 {
 		return fmt.Errorf("fees and FX rate can't be negative")

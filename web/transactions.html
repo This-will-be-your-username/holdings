@@ -57,6 +57,7 @@
         <option value="buy" {{sel (index .Form "type") "buy"}}>Buy</option>
         <option value="sell" {{sel (index .Form "type") "sell"}}>Sell</option>
         <option value="dividend" {{sel (index .Form "type") "dividend"}}>Distribution (cash)</option>
+        <option value="award" {{sel (index .Form "type") "award"}}>Shares awarded (RSU release) - price = market value on vest date</option>
         <option value="drp" {{sel (index .Form "type") "drp"}}>Distribution reinvested (DRP)</option>
       </select></label>
     <label>Date <input type="date" name="date" required value="{{index .Form "date"}}"></label>

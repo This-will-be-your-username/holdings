@@ -95,12 +95,12 @@ func buildExplorer(db *DB, res *Result, now time.Time) *Explorer {
 			if k, ok := idx[r.Symbol]; ok {
 				started[k] = true
 				switch r.Type {
-				case "buy", "drp":
+				case "buy", "drp", "award":
 					units[k] += r.Units
 				case "sell":
 					units[k] -= r.Units
 				}
-				if r.Type == "buy" || r.Type == "sell" {
+				if r.Type == "buy" || r.Type == "award" || r.Type == "sell" {
 					inv[k] -= r.CashFlowAUD
 				}
 				last[k] = r.Price

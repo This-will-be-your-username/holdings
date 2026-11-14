@@ -181,7 +181,7 @@ type FXRate struct {
 	Rate      float64
 }
 
-var typeOrder = map[string]int{"buy": 0, "drp": 1, "dividend": 2, "sell": 3}
+var typeOrder = map[string]int{"buy": 0, "award": 0, "drp": 1, "dividend": 2, "sell": 3}
 
 type posState struct {
 	units, cost, lastPx float64
@@ -275,7 +275,7 @@ func Compute(db *DB, now time.Time) *Result {
 		s.lastPx = t.Price
 
 		switch t.Type {
-		case "buy":
+		case "buy", "award": // an RSU release is carried like a purchase at its market value on the day it vests
 			s.sawBuy = true
 			g := t.Units*t.Price*fx + t.Fees
 			row.GrossAUD, row.CashFlowAUD = g, -g
@@ -469,12 +469,12 @@ func buildChart(rows []Row, px map[string]*Series, fxs map[string]*Series, db *D
 		for i < len(rows) && rows[i].Date <= ds {
 			r := rows[i]
 			switch r.Type {
-			case "buy", "drp":
+			case "buy", "drp", "award":
 				units[r.Symbol] += r.Units
 			case "sell":
 				units[r.Symbol] -= r.Units
 			}
-			if r.Type == "buy" || r.Type == "sell" {
+			if r.Type == "buy" || r.Type == "award" || r.Type == "sell" {
 				invested -= r.CashFlowAUD
 			}
 			last[r.Symbol] = r.Price

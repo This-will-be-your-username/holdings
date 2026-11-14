@@ -341,6 +341,7 @@ func detectDateOrder(vals []string) (order, note string) {
 
 var (
 	reTaxLine = regexp.MustCompile(`(?i)^(non[- ]resident |us |foreign )?(withh?olding )?tax( withh?eld| paid| deducted)?\b|^nra\b|^withh?olding\b`)
+	reAward   = regexp.MustCompile(`(?i)\brsus?\b|\brsas?\b|\breleas(e|ed|es)\b|\bvest(ed|s|ing)?\b|\bawards?(ed)?\b|stock award|share award|equity award|performance rights? (vest|releas)`)
 	reDRP     = regexp.MustCompile(`(?i)reinvest|\bdrp\b|\bdrip\b|dividend plan|distribution plan`)
 	reDiv     = regexp.MustCompile(`(?i)dividend|distribution|\bdivs?\b|payout|franked|\bcoupon\b|^income\b`)
 	reSell    = regexp.MustCompile(`(?i)^(s|sl|sell|sold|sale|sales|redemption|redeem|redeemed|disposal|disposed|short sell|units withdrawn|switch out|sell to close)\b`)
@@ -358,6 +359,8 @@ func classifyType(s string) (typ string, ignore, ok bool) {
 	switch {
 	case reTaxLine.MatchString(s):
 		return "", true, true
+	case reAward.MatchString(s):
+		return "award", false, true
 	case reDRP.MatchString(s):
 		return "drp", false, true
 	case reDiv.MatchString(s):
@@ -1030,11 +1033,14 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 		}
 	case hasGST:
 		fees = abs(gstV)
-	case hasGross && hasTotal && (typ == "buy" || typ == "sell"):
+	case hasGross && hasTotal && (typ == "buy" || typ == "award" || typ == "sell"):
 		fees = math.Abs(abs(total) - abs(gross))
 	}
 
 	t := Txn{Date: date, Symbol: sym, Type: typ, Fees: math.Round(fees*100) / 100, Ref: an.cell(row, FRef), Notes: an.cell(row, FNotes)}
+	if typ == "award" && t.Notes == "" {
+		t.Notes = "Shares awarded (RSU release) - cost base is the market value on the vest date"
+	}
 	if t.Notes == "" && desc != "" && desc != typeText {
 		t.Notes = desc
 	}
@@ -1043,7 +1049,7 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 	}
 
 	switch typ {
-	case "buy", "sell":
+	case "buy", "sell", "award":
 		if units <= 0 {
 			return fail("no quantity")
 		}
@@ -1051,7 +1057,7 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 			switch {
 			case hasGross && gross != 0:
 				price = abs(gross) / units
-			case hasTotal && total != 0 && typ == "buy":
+			case hasTotal && total != 0 && (typ == "buy" || typ == "award"):
 				price = (abs(total) - fees) / units
 			case hasTotal && total != 0:
 				price = (abs(total) + fees) / units
@@ -1062,7 +1068,7 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 		}
 		if hasTotal && hasPrice && total != 0 {
 			want := units * price
-			if typ == "buy" {
+			if typ == "buy" || typ == "award" {
 				want += fees
 			} else {
 				want -= fees

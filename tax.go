@@ -155,7 +155,7 @@ func cgtReplay(rows []Row, method, estMethod string, picks map[string][]Pick) ([
 			}
 		}
 		switch r.Type {
-		case "buy", "drp":
+		case "buy", "drp", "award":
 			d, _ := time.Parse(dateFmt, r.Date)
 			parcels[r.Symbol] = append(parcels[r.Symbol], &parcel{acq: d, acqS: r.Date, units: r.Units, cost: r.GrossAUD, seq: len(parcels[r.Symbol])})
 		case "sell":

@@ -271,3 +271,4 @@ details.history[open]>summary{margin-bottom:12px}
 .xp-dates label{align-items:center}
 @media (max-width:560px){.xp-list{grid-template-columns:repeat(2,minmax(0,1fr))}.xp-item{min-width:0;padding:6px}.xp-item .muted{display:none}.xp-dates{flex-wrap:nowrap;width:100%}.xp-dates label{flex:1;min-width:0}.xp-dates input{width:100%;min-width:0}}
 .xp-item{min-width:0}
+.pill.award{background:color-mix(in srgb,var(--violet,#9c36b5) 16%,transparent);color:var(--violet,#9c36b5)}
