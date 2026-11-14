@@ -171,6 +171,8 @@ type Result struct {
 	Warnings  []string
 	Suggested []Suggest
 	FX        []FXRate // rates used to convert foreign holdings to AUD
+
+	px, fxs map[string]*Series // the price and exchange-rate histories used, kept for the chart explorer
 }
 
 // FXRate is the latest AUD-per-unit rate for a currency held, and the day it applies to.
@@ -446,6 +448,7 @@ func Compute(db *DB, now time.Time) *Result {
 	}
 	res.Total = total
 
+	res.px, res.fxs = px, fxs
 	res.Chart = buildChart(res.Rows, px, fxs, db, now)
 	res.Suggested = suggestions(db, res.Rows)
 	return res

@@ -173,3 +173,7 @@ Shares in an unlisted company are tracked on the **Private** page. Add the compa
 ## Currency conversion
 
 Foreign holdings are converted to AUD using ECB rates from Frankfurter. Each refresh also pulls the newest published rate (not just history), including for unlisted and private holdings in foreign currencies. AUD is shown first with the original amount in brackets, e.g. `3,200.00 (USD 2,000.00)`; the rate and its date are shown under the holdings table, and a warning appears if the latest rate is over a week old.
+
+## Chart explorer
+
+The **Charts** page plots your total value or any mix of investments (optionally combined into one line, with money invested overlaid). Metrics: value, gain/loss (value minus net invested) and a price index rebased to 100 so investments compare fairly. Pick a common range (1M, 3M, 6M, YTD, financial year, 1Y, 3Y, 5Y, All) or enter exact dates; drag across the chart to highlight a period, see its start, end and change per line, and zoom in on it. Your selection is remembered in the browser.

@@ -1,0 +1,39 @@
+{{define "content"}}
+<div class="head"><div><h1>Charts</h1>
+<p class="muted">Chart your total value or pick investments to compare. Choose a date range, then drag on the chart to highlight a period and see exactly what happened in it.</p></div></div>
+{{if .Empty}}
+<div class="card empty"><h2>Nothing to chart yet</h2><p>Add some transactions and prices and they'll appear here.</p><a class="btn primary" href="/transactions">Add transactions</a></div>
+{{else}}
+<script>window.__EXPLORER__={{.Explorer}};</script>
+<section class="card" id="xp">
+  <div class="xp-bar">
+    <div class="seg" role="group" aria-label="What to chart" id="xp-metric">
+      <button type="button" data-m="value" class="on">Value</button>
+      <button type="button" data-m="gain" title="Value minus the money you put in">Gain / loss</button>
+      <button type="button" data-m="index" title="Each investment's unit price, starting at 100 - compares performance fairly">Price index</button>
+    </div>
+    <div class="seg" role="group" aria-label="Date range" id="xp-range"></div>
+    <div class="xp-dates">
+      <label>From <input type="date" id="xp-from"></label>
+      <label>To <input type="date" id="xp-to"></label>
+    </div>
+  </div>
+  <div class="xp-hl" id="xp-hl" hidden></div>
+  <div class="chart xp-chart" id="xp-chart"></div>
+  <p class="muted s xp-help">Drag across the chart to highlight a period. Then zoom in, or just read its change below.</p>
+
+  <div class="xp-pick">
+    <div class="xp-pick-h"><b>Investments</b>
+      <span class="xp-tools"><button type="button" class="linkbtn" id="xp-all">All</button><button type="button" class="linkbtn" id="xp-none">None</button><button type="button" class="linkbtn" id="xp-top">Top 5</button></span>
+      <label class="xp-opt"><input type="checkbox" id="xp-combine"> Combine selected into one line</label>
+      <label class="xp-opt" id="xp-inv-wrap"><input type="checkbox" id="xp-inv"> Show money invested</label>
+    </div>
+    <div class="xp-list" id="xp-list"></div>
+  </div>
+
+  <div class="scroll"><table class="compact" id="xp-stats"></table></div>
+  <p class="muted s" id="xp-note"></p>
+</section>
+<script src="/static/explorer.js" defer></script>
+{{end}}
+{{end}}
