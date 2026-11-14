@@ -170,6 +170,13 @@ type Result struct {
 	Chart     []ChartPt
 	Warnings  []string
 	Suggested []Suggest
+	FX        []FXRate // rates used to convert foreign holdings to AUD
+}
+
+// FXRate is the latest AUD-per-unit rate for a currency held, and the day it applies to.
+type FXRate struct {
+	Ccy, Date string
+	Rate      float64
 }
 
 var typeOrder = map[string]int{"buy": 0, "drp": 1, "dividend": 2, "sell": 3}
@@ -402,6 +409,21 @@ func Compute(db *DB, now time.Time) *Result {
 			}
 		}
 	}
+	fxSeen := map[string]bool{}
+	for _, h := range res.Holdings {
+		if c := h.Currency; c != "" && c != "AUD" && !fxSeen[c] {
+			fxSeen[c] = true
+			if s := fxs[c]; s != nil {
+				if v, d, ok := s.Last(); ok {
+					res.FX = append(res.FX, FXRate{Ccy: c, Date: d, Rate: v})
+					if d < now.AddDate(0, 0, -7).Format(dateFmt) {
+						res.Warnings = append(res.Warnings, fmt.Sprintf("The latest %s/AUD rate is from %s - Refresh to update currency conversion.", c, d))
+					}
+				}
+			}
+		}
+	}
+	sort.Slice(res.FX, func(i, j int) bool { return res.FX[i].Ccy < res.FX[j].Ccy })
 	for _, h := range res.Holdings {
 		if totalValue > 0 {
 			h.Weight = h.ValueAUD / totalValue * 100

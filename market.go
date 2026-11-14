@@ -169,6 +169,25 @@ func fetchASXDiv(code string) (string, DivInfo, error) {
 	return "", DivInfo{}, lastErr
 }
 
+var fxBase = "https://api.frankfurter.dev/v1"
+
+// fetchFXLatest returns the most recent published rate (AUD per 1 unit of ccy) and the date it applies to. The ECB
+// publishes once each business day, so this is the newest rate that exists.
+func fetchFXLatest(ccy string) (string, float64, error) {
+	b, err := httpGet(fmt.Sprintf("%s/latest?base=%s&symbols=AUD", fxBase, url.QueryEscape(ccy)))
+	if err != nil {
+		return "", 0, fmt.Errorf("FX %s: %w", ccy, err)
+	}
+	var r struct {
+		Date  string             `json:"date"`
+		Rates map[string]float64 `json:"rates"`
+	}
+	if err := json.Unmarshal(b, &r); err != nil || r.Rates["AUD"] <= 0 || r.Date == "" {
+		return "", 0, fmt.Errorf("FX %s: unexpected response", ccy)
+	}
+	return r.Date, r.Rates["AUD"], nil
+}
+
 // fetchFX returns AUD per 1 unit of ccy from the ECB via Frankfurter (keyless).
 // Long ranges are returned weekly by the API, so we request in <90-day chunks
 // to keep daily resolution.
@@ -179,7 +198,7 @@ func fetchFX(ccy string, from, to time.Time) (map[string]float64, error) {
 		if end.After(to) {
 			end = to
 		}
-		u := fmt.Sprintf("https://api.frankfurter.dev/v1/%s..%s?base=%s&symbols=AUD",
+		u := fmt.Sprintf("%s/%s..%s?base=%s&symbols=AUD", fxBase,
 			start.Format(dateFmt), end.Format(dateFmt), url.QueryEscape(ccy))
 		b, err := httpGet(u)
 		if err != nil {

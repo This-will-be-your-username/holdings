@@ -139,6 +139,45 @@ type Candidate struct {
 	Date                      string // when the article says it happened, if it could be read
 	Amount                    float64
 	Currency                  string
+
+	// Set when the figure is in another currency than the company's and a rate was available to convert it.
+	Converted            bool
+	ConvAmount, ConvRate float64
+	ConvDate, ConvNote   string
+}
+
+// fxRate returns AUD per 1 unit of ccy on (or just before) date, from the saved rates.
+func fxRate(db *DB, ccy, date string) (float64, string, bool) {
+	if ccy == "" || ccy == "AUD" {
+		return 1, date, true
+	}
+	s := newSeries(db.FX[ccy])
+	if v, d, ok := s.At(date); ok {
+		return v, d, true
+	}
+	if v, d, ok := s.Last(); ok {
+		return v, d, true
+	}
+	return 0, "", false
+}
+
+// convertCandidate expresses a found figure in the company's currency, going through AUD.
+func convertCandidate(db *DB, c Candidate, to, today string) Candidate {
+	if c.Currency == to {
+		return c
+	}
+	on := c.Date
+	if on == "" {
+		on = today
+	}
+	from, fd, ok1 := fxRate(db, c.Currency, on)
+	dest, _, ok2 := fxRate(db, to, on)
+	if !ok1 || !ok2 {
+		return c
+	}
+	c.Converted, c.ConvAmount, c.ConvRate, c.ConvDate = true, c.Amount*from/dest, from/dest, fd
+	c.ConvNote = fmt.Sprintf("%s %s converted to %s at %.4f (rate of %s)", c.Currency, commas(c.Amount, 0), to, from/dest, fd)
+	return c
 }
 
 var (
@@ -377,6 +416,8 @@ type privRow struct {
 	SharesOut                          float64
 	Units, ValueAUD, CostAUD           float64
 	Price                              float64
+	PriceAUD, FXRate                   float64 // the latest price in AUD and the rate used (foreign companies only)
+	FXDate                             string
 	PriceDate                          string
 	AgeDays                            int
 	Stale                              bool
@@ -432,7 +473,13 @@ func (a *App) privatePage(w http.ResponseWriter, r *http.Request, searchSym stri
 				}
 			}
 			if inst.Symbol == searchSym {
-				p.Searched, p.Cands, p.SearchErr = true, cands, searchErr
+				p.Searched, p.SearchErr = true, searchErr
+				for _, c := range cands {
+					p.Cands = append(p.Cands, convertCandidate(db, c, inst.Currency, now.Format(dateFmt)))
+				}
+			}
+			if rate, d, ok := fxRate(db, inst.Currency, p.PriceDate); ok && inst.Currency != "AUD" && p.PriceDate != "" {
+				p.PriceAUD, p.FXRate, p.FXDate = p.Price*rate, rate, d
 			}
 			rows = append(rows, p)
 		}
@@ -478,6 +525,16 @@ func (a *App) privateCompany(w http.ResponseWriter, r *http.Request) {
 			inst.Name = name
 		}
 		inst.SharesOut, inst.SearchTerm = shares, term
+		if ccy != inst.Currency { // prices already recorded are in the old currency, so only an unused company can change
+			used := len(db.Checkpoints[sym]) > 0
+			for _, t := range db.Txns {
+				used = used || t.Symbol == sym
+			}
+			if used {
+				return fmt.Errorf("the currency can't be changed once you have transactions or checkpoints, because their prices are in %s", inst.Currency)
+			}
+			inst.Currency = ccy
+		}
 		return nil
 	})
 	if err != nil {

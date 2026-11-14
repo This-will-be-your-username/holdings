@@ -10,7 +10,7 @@
 
   <div class="fund-status">
     <div><span class="lbl">Your holding</span><br><b>{{if .Units}}{{num4 .Units}} shares{{else}}none recorded{{end}}</b></div>
-    <div><span class="lbl">Latest checkpoint</span><br>{{if .PriceDate}}<b>{{.Currency}} {{num4 .Price}}</b> <span class="muted s">per share, {{.PriceDate}}</span>{{else}}<span class="muted">none yet</span>{{end}}</div>
+    <div><span class="lbl">Latest checkpoint</span><br>{{if .PriceDate}}{{if .PriceAUD}}<b>A${{num4 .PriceAUD}}</b> <span class="muted s">({{.Currency}} {{num4 .Price}})</span>{{else}}<b>{{.Currency}} {{num4 .Price}}</b>{{end}} <span class="muted s">per share, {{.PriceDate}}</span>{{else}}<span class="muted">none yet</span>{{end}}</div>
     {{if .Units}}<div><span class="lbl">Valued at (AUD)</span><br><b>${{money .ValueAUD}}</b> <span class="muted s">cost ${{money .CostAUD}}</span></div>{{end}}
   </div>
   {{if .Stale}}<div class="flash warnnote">The latest checkpoint is {{.AgeDays}} days old. This holding is still valued at it, so the figure may be well out of date.</div>{{end}}
@@ -34,11 +34,11 @@
     <p class="muted s">Figures below were read from search snippets and may be wrong, in the wrong currency, or about a different company. Open the source and check before recording.</p>
     <ul class="cands">
     {{range .Cands}}<li>
-      <div><b>{{.Currency}} {{money .Amount}}</b> {{if .Date}}<span class="tag">{{.Date}}</span>{{else}}<span class="tag">date not found</span>{{end}}
-        {{if ne .Currency $c.Currency}}<span class="tag">in {{.Currency}} — convert to {{$c.Currency}} first</span>{{end}}</div>
+      <div>{{if .Converted}}<b>{{$c.Currency}} {{money .ConvAmount}}</b> <span class="muted s">({{.Currency}} {{money .Amount}})</span>{{else}}<b>{{.Currency}} {{money .Amount}}</b>{{end}} {{if .Date}}<span class="tag">{{.Date}}</span>{{else}}<span class="tag">date not found</span>{{end}}
+        {{if .Converted}}<span class="tag">converted at {{printf "%.4f" .ConvRate}}</span>{{else if ne .Currency $c.Currency}}<span class="tag">in {{.Currency}} — no exchange rate saved, convert to {{$c.Currency}} first</span>{{end}}</div>
       <div><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a> <span class="muted s">{{.Host}}</span></div>
       <div class="muted s">{{.Snippet}}</div>
-      {{if eq .Currency $c.Currency}}<a class="btn" href="/private?sym={{$c.Symbol}}&amp;date={{if .Date}}{{.Date}}{{else}}{{$.Today}}{{end}}&amp;valuation={{printf "%.0f" .Amount}}&amp;source={{.URL}}#cp-{{$c.Symbol}}">Use as a checkpoint…</a>{{end}}
+      {{if or .Converted (eq .Currency $c.Currency)}}<a class="btn" href="/private?sym={{$c.Symbol}}&amp;date={{if .Date}}{{.Date}}{{else}}{{$.Today}}{{end}}&amp;valuation={{if .Converted}}{{printf "%.0f" .ConvAmount}}{{else}}{{printf "%.0f" .Amount}}{{end}}&amp;source={{.URL}}{{if .Converted}}&amp;note={{.ConvNote}}{{end}}#cp-{{$c.Symbol}}">Use as a checkpoint…</a>{{end}}
     </li>{{end}}
     </ul>
     {{end}}
@@ -74,6 +74,7 @@
     <form method="post" action="/private/company" class="stack">
       <input type="hidden" name="symbol" value="{{.Symbol}}">
       <label>Name <input name="name" value="{{.Name}}"></label>
+      <label>Currency <input name="currency" value="{{.Currency}}" maxlength="3" size="4"></label>
       <label>Shares on issue (fully diluted) <input name="shares_out" inputmode="decimal" value="{{if .SharesOut}}{{printf "%.0f" .SharesOut}}{{end}}" placeholder="optional"></label>
       <label>Search for <input name="search_term" value="{{.SearchTerm}}" placeholder="a name used in news coverage, if different"></label>
       <div><button class="btn">Save details</button></div>

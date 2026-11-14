@@ -169,3 +169,7 @@ If FundTrack's total differs from your provider's, open **/reconcile** (link on 
 ## Private companies
 
 Shares in an unlisted company are tracked on the **Private** page. Add the company, record your shares as normal buy/sell transactions (market: Private company), and record **value checkpoints** - a date plus either a price per share or the company's reported valuation (divided by the shares on issue). The holding is valued at its latest checkpoint and flagged on the dashboard when that is over a year old. **Search for a valuation** looks for reported valuations in public web results (only the company name is sent); results are shown with their source and are never saved unless you choose to record them. Private holdings are never suggested by the sell estimator.
+
+## Currency conversion
+
+Foreign holdings are converted to AUD using ECB rates from Frankfurter. Each refresh also pulls the newest published rate (not just history), including for unlisted and private holdings in foreign currencies. AUD is shown first with the original amount in brackets, e.g. `3,200.00 (USD 2,000.00)`; the rate and its date are shown under the holdings table, and a warning appears if the latest rate is over a week old.

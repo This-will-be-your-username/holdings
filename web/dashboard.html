@@ -50,8 +50,8 @@
       <td><b>{{short .Symbol}}</b> <span class="tag">{{.Market}}</span><div class="muted s">{{.Name}} · <a class="link s" href="/estimator?sym={{.Symbol}}">estimate a sale</a>{{if .PriceNote}} · <span class="warn" title="{{.PriceNote}}">⚠ {{.PriceNote}}</span>{{end}}</div></td>
       <td class="r">{{units .Units}}</td>
       <td class="r">{{money .AvgCost}}</td>
-      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}<div class="muted s">{{if .Live}}<span class="livedot" title="Live quote ({{.PriceSource}})"></span> {{hm .PriceAt}}{{else}}{{.PriceDate}}{{end}}</div></td>
-      <td class="r"><b>{{money .ValueAUD}}</b><div class="muted s">{{printf "%.1f" .Weight}}%</div></td>
+      <td class="r">{{money (mulf .Price .FXNow)}}{{if ne .Currency "AUD"}} <span class="muted s">{{orig .Currency .Price}}</span>{{end}}<div class="muted s">{{if .Live}}<span class="livedot" title="Live quote ({{.PriceSource}})"></span> {{hm .PriceAt}}{{else}}{{.PriceDate}}{{end}}</div></td>
+      <td class="r"><b>{{money .ValueAUD}}</b>{{if ne .Currency "AUD"}} <span class="muted s">{{orig .Currency (mulf .Units .Price)}}</span>{{end}}<div class="muted s">{{printf "%.1f" .Weight}}%</div></td>
       <td class="r {{cls .Unrealised}}">{{signed .Unrealised}}</td>
       <td class="r">{{money .Income}}{{if .Franking}}<div class="muted s">+{{money .Franking}} franking</div>{{end}}</td>
       <td class="r {{cls .Realised}}">{{signed .Realised}}</td>
@@ -62,6 +62,7 @@
     </tbody>
   </table>
   </div>
+  {{if .R.FX}}<p class="muted s">Foreign holdings are converted to AUD at the latest published rate, with the original amount in brackets: {{range $i, $f := .R.FX}}{{if $i}} · {{end}}1 {{$f.Ccy}} = A${{printf "%.4f" $f.Rate}} ({{$f.Date}}){{end}}.</p>{{end}}
 </section>
 
 {{if .R.Closed}}

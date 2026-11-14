@@ -71,10 +71,18 @@ func (a *App) refresh(force bool) (string, error) {
 		limit := now.AddDate(-histYears, 0, 0)
 		for sym, e := range earliest {
 			inst := db.Instruments[sym]
-			if inst == nil || inst.Market == MarketManaged {
+			if inst == nil {
 				continue
 			}
 			d, _ := time.Parse(dateFmt, e)
+			if inst.Currency != "AUD" && inst.Currency != "" { // every foreign holding needs rates, listed or not
+				if f, ok := fxFrom[inst.Currency]; !ok || d.Before(f) {
+					fxFrom[inst.Currency] = d
+				}
+			}
+			if inst.Market == MarketManaged {
+				continue
+			}
 			want := d.AddDate(0, 0, -10)
 			if limit.Before(want) {
 				want = limit // several years of history for trend analysis
@@ -82,11 +90,6 @@ func (a *App) refresh(force bool) (string, error) {
 			jobs = append(jobs, job{sym, incrementalFrom(db.Prices[sym], want)})
 			if at, err := time.Parse(time.RFC3339, db.PriceAt["asxdiv:"+sym]); strings.HasSuffix(sym, ".AX") && (force || err != nil || now.Sub(at) > 6*time.Hour) {
 				asxDue[sym] = true
-			}
-			if inst.Currency != "AUD" {
-				if f, ok := fxFrom[inst.Currency]; !ok || d.Before(f) {
-					fxFrom[inst.Currency] = d
-				}
 			}
 		}
 		if len(jobs) > 0 {
@@ -180,6 +183,14 @@ func (a *App) refresh(force bool) (string, error) {
 		m, err := fetchFX(ccy, from, now)
 		if err != nil {
 			fail(err)
+		}
+		if d, rate, lerr := fetchFXLatest(ccy); lerr == nil { // the newest published rate, even if the range call missed it
+			if m == nil {
+				m = map[string]float64{}
+			}
+			m[d] = rate
+		} else if len(m) == 0 {
+			fail(lerr)
 		}
 		if len(m) > 0 {
 			fxData[ccy] = m

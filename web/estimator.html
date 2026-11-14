@@ -55,7 +55,7 @@
     <tbody>{{range .Lines}}<tr>
       <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
       <td class="r">{{units .Units}} <span class="muted s">of {{units .Held}}</span></td>
-      <td class="r">{{if ne .Currency "AUD"}}{{.Currency}} {{end}}{{money .Price}}{{if ne .Currency "AUD"}}<div class="muted s">@ {{printf "%.4f" .FX}}</div>{{end}}</td>
+      <td class="r">{{money (mulf .Price .FX)}}{{if ne .Currency "AUD"}} <span class="muted s">{{orig .Currency .Price}}</span><div class="muted s">@ {{printf "%.4f" .FX}}</div>{{end}}</td>
       <td class="r">{{money .GrossAUD}}</td><td class="r">{{money .Fees}}</td>
       <td class="r">{{units .Remaining}}</td></tr>{{end}}</tbody>
   </table></div>

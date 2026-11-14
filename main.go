@@ -406,7 +406,15 @@ var funcs = template.FuncMap{
 		return fmt.Sprintf("%.2f", v)
 	},
 	"addf": func(a, b float64) float64 { return a + b },
-	"add":  func(a, b int) int { return a + b },
+	"mulf": func(a, b float64) float64 { return a * b },
+	// orig shows the original-currency amount in small brackets after an AUD figure; nothing for AUD itself.
+	"orig": func(ccy string, v float64) string {
+		if ccy == "" || ccy == "AUD" {
+			return ""
+		}
+		return "(" + ccy + " " + commas(v, 2) + ")"
+	},
+	"add": func(a, b int) int { return a + b },
 	"dict": func(kv ...any) map[string]any {
 		m := map[string]any{}
 		for i := 0; i+1 < len(kv); i += 2 {

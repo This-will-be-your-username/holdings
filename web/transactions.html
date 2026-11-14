@@ -94,7 +94,7 @@
       <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
       <td><span class="pill {{.Type}}">{{typeLabel .Type}}</span></td>
       <td class="r">{{if .Units}}{{units .Units}}{{end}}</td>
-      <td class="r">{{if .Price}}{{.Currency}} {{money .Price}}{{end}}</td>
+      <td class="r">{{if .Price}}{{money (mulf .Price .FXUsed)}}{{if ne .Currency "AUD"}} <span class="muted s">{{orig .Currency .Price}}</span>{{end}}{{end}}</td>
       <td class="r">{{if .Fees}}{{money .Fees}}{{end}}</td>
       <td class="r">{{if ne .Currency "AUD"}}{{printf "%.4f" .FXUsed}}{{end}}</td>
       <td class="r">{{money .GrossAUD}}{{if .Franking}}<div class="muted s">+{{money .Franking}} franking</div>{{end}}{{if .TaxDeferred}}<div class="muted s">{{money .TaxDeferred}} tax-deferred</div>{{end}}{{if .Warn}}<div class="warn s">⚠ {{.Warn}}</div>{{end}}</td>
