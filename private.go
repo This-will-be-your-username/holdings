@@ -409,9 +409,60 @@ func (a *App) registerPrivate(mux *http.ServeMux) {
 	mux.HandleFunc("POST /private/checkpoint", a.privateCheckpoint)
 	mux.HandleFunc("POST /private/checkpoint/delete", a.privateCheckpointDelete)
 	mux.HandleFunc("POST /private/search", a.privateSearch)
+	mux.HandleFunc("POST /private/company/delete", a.privateCompanyDelete)
+}
+
+// privateCompanyDelete removes a private company. One with no transactions goes straight away; one that has
+// transactions is only removed (with them, and its checkpoints) after an explicit confirmation.
+func (a *App) privateCompanyDelete(w http.ResponseWriter, r *http.Request) {
+	sym := r.FormValue("symbol")
+	confirmed := r.FormValue("confirm") != ""
+	var name string
+	var nTxn int
+	err := a.st().Update(func(db *DB) error {
+		inst := db.Instruments[sym]
+		if inst == nil || !inst.Private {
+			return fmt.Errorf("%q isn't a private company in your records", sym)
+		}
+		name = inst.Name
+		for _, t := range db.Txns {
+			if t.Symbol == sym {
+				nTxn++
+			}
+		}
+		if nTxn > 0 && !confirmed {
+			return fmt.Errorf("%s has %d transaction%s. Tick the box to confirm you want them deleted with the company", name, nTxn, plural(nTxn))
+		}
+		keep := db.Txns[:0:0]
+		for _, t := range db.Txns {
+			if t.Symbol != sym {
+				keep = append(keep, t)
+			}
+		}
+		db.Txns = keep
+		delete(db.Instruments, sym)
+		delete(db.Checkpoints, sym)
+		delete(db.Manual, sym)
+		delete(db.Prices, sym)
+		delete(db.Divs, sym)
+		delete(db.DivInfo, sym)
+		delete(db.PriceAt, sym)
+		delete(db.Quotes, sym)
+		return nil
+	})
+	if err != nil {
+		redirect(w, r, "/private", "", err.Error())
+		return
+	}
+	msg := "Deleted " + name
+	if nTxn > 0 {
+		msg += fmt.Sprintf(" and its %d transaction%s", nTxn, plural(nTxn))
+	}
+	redirect(w, r, "/private", msg, "")
 }
 
 type privRow struct {
+	NTxn                               int // transactions recorded for it
 	Symbol, Name, Currency, SearchTerm string
 	SharesOut                          float64
 	DeferredTax                        bool
@@ -454,6 +505,11 @@ func (a *App) privatePage(w http.ResponseWriter, r *http.Request, searchSym stri
 			}
 			p := privRow{Symbol: inst.Symbol, Name: inst.Name, Currency: inst.Currency, SearchTerm: term, SharesOut: inst.SharesOut, DeferredTax: inst.DeferredTax,
 				WebSearch: "https://duckduckgo.com/?q=" + url.QueryEscape(`"`+term+`" valuation funding round`)}
+			for _, t := range db.Txns {
+				if t.Symbol == inst.Symbol {
+					p.NTxn++
+				}
+			}
 			if h := held[inst.Symbol]; h != nil {
 				p.Units, p.ValueAUD, p.CostAUD = h.Units, h.ValueAUD, h.CostAUD
 				p.ValueNative = h.Units * h.Price

@@ -72,6 +72,11 @@
   {{end}}
 
   <details class="fund-more"><summary>Company details</summary>
+    <form method="post" action="/private/company/delete" class="stack del-co" onsubmit="return confirm('Delete {{.Name}}{{if .NTxn}} and its {{.NTxn}} transaction(s){{end}}? This can''t be undone.')">
+      <input type="hidden" name="symbol" value="{{.Symbol}}">
+      {{if .NTxn}}<label class="check"><input type="checkbox" name="confirm" value="1"><span>Also delete its {{.NTxn}} transaction{{if ne .NTxn 1}}s{{end}} and valuation checkpoints</span></label>{{end}}
+      <div><button class="btn danger">Delete this company</button></div>
+    </form>
     <form method="post" action="/private/company" class="stack">
       <input type="hidden" name="symbol" value="{{.Symbol}}">
       <label>Name <input name="name" value="{{.Name}}"></label>

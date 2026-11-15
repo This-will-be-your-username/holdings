@@ -298,3 +298,52 @@ func TestChangingPrivateCurrencyNeedsConfirmation(t *testing.T) {
 		t.Fatalf("currency %s", cur)
 	}
 }
+
+func TestDeletePrivateCompany(t *testing.T) {
+	a, _ := newApp(t.TempDir() + "/d.json")
+	a.st().Update(func(db *DB) error {
+		*db = *privDB() // PVT-ACME with one buy
+		AddCheckpoint(db, "PVT-ACME", Checkpoint{Date: "2025-01-01", Price: 3})
+		db.Instruments["PVT-EMPTY"] = &Instrument{Symbol: "PVT-EMPTY", Name: "Empty Co", Currency: "AUD", Market: MarketManaged, Private: true}
+		db.Instruments["VAS.AX"] = &Instrument{Symbol: "VAS.AX", Name: "VAS", Currency: "AUD", Market: MarketASX}
+		db.Txns = append(db.Txns, Txn{ID: "v1", Date: "2024-01-01", Symbol: "VAS.AX", Type: "buy", Units: 1, Price: 1})
+		return nil
+	})
+	del := func(v url.Values) *httptest.ResponseRecorder { return postForm(t, a, "/private/company/delete", v) }
+
+	// the page offers it
+	if body := getPage(a, "/private"); !strings.Contains(body, "Delete this company") {
+		t.Fatal("private page should have a delete button")
+	}
+	// a company with no transactions goes straight away
+	if r := del(url.Values{"symbol": {"PVT-EMPTY"}}); strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("empty company: %s", r.Header().Get("Location"))
+	}
+	// one with transactions needs confirmation, and nothing changes without it
+	if r := del(url.Values{"symbol": {"PVT-ACME"}}); !strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatal("deleting a company with transactions must ask for confirmation")
+	}
+	a.st().View(func(db *DB) {
+		if db.Instruments["PVT-ACME"] == nil || len(db.Txns) != 2 {
+			t.Fatal("an unconfirmed delete must change nothing")
+		}
+	})
+	if r := del(url.Values{"symbol": {"PVT-ACME"}, "confirm": {"1"}}); strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("confirmed delete: %s", r.Header().Get("Location"))
+	}
+	a.st().View(func(db *DB) {
+		if db.Instruments["PVT-ACME"] != nil || db.Checkpoints["PVT-ACME"] != nil || db.Manual["PVT-ACME"] != nil {
+			t.Fatalf("company data should be gone: %+v", db.Instruments)
+		}
+		if len(db.Txns) != 1 || db.Txns[0].Symbol != "VAS.AX" || db.Instruments["VAS.AX"] == nil {
+			t.Fatalf("other holdings must be untouched: %+v", db.Txns)
+		}
+	})
+	// listed holdings can't be deleted this way
+	if r := del(url.Values{"symbol": {"VAS.AX"}, "confirm": {"1"}}); !strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatal("only private companies can be deleted here")
+	}
+	if body := getPage(a, "/private"); strings.Contains(body, `id="co-PVT-ACME"`) {
+		t.Fatal("the deleted company should no longer be listed")
+	}
+}

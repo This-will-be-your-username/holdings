@@ -213,3 +213,5 @@ The Sell everything tab has an **Include private shares** tick box (on by defaul
 ## Tax-deferred employee shares
 
 For awarded shares in a private company on which no tax has been paid yet (an employee share scheme with tax deferred until sale), tick **No tax has been paid on my awarded shares** in the company's details on the Private page. Selling those shares then counts the whole sale value as ordinary income, taxed in full at your marginal rate with no 50% discount, and creates no capital gain or loss. So it no longer offsets gains on your listed holdings, and the tax shows as *employee share income* in the estimators and on the Tax page. Whether tax is deferred, and the taxing point, depend on your scheme: check your plan documents or an adviser.
+
+A private company can be deleted from its **Company details** on the Private page. One with transactions is only removed, together with them and its valuation checkpoints, after you tick a confirmation box.

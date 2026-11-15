@@ -274,3 +274,6 @@ details.history[open]>summary{margin-bottom:12px}
 .pill.award{background:color-mix(in srgb,var(--violet,#9c36b5) 16%,transparent);color:var(--violet,#9c36b5)}
 .tag.owner{background:color-mix(in srgb,var(--violet,#9c36b5) 16%,transparent);color:var(--violet,#9c36b5)}
 h3.owner-h{margin:18px 0 6px}
+.btn.danger{background:transparent;color:var(--neg);border-color:color-mix(in srgb,var(--neg) 55%,transparent)}
+.btn.danger:hover{background:color-mix(in srgb,var(--neg) 12%,transparent)}
+.del-co{margin:10px 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
