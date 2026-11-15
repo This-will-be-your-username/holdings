@@ -59,10 +59,14 @@ go test ./...      # run the tests (synthetic data, no network)
 - [Configuration and Data](docs/wiki/Configuration-and-Data.md) and [Architecture](docs/wiki/Architecture.md)
 - [Limitations and FAQ](docs/wiki/Limitations-and-FAQ.md)
 
-The pages are plain Markdown kept in the repository, so they are versioned with the code. GitHub's wiki feature is only available for public repositories (or private ones on a paid plan); to publish them as the repository's GitHub wiki, enable Wikis, create the first page once in the browser, then run `./scripts/publish-wiki.ps1 -Repo owner/fund-track`.
+The same pages are published as the repository's [GitHub wiki](../../wiki). They are plain Markdown kept in `docs/wiki` so they are versioned with the code; `./scripts/publish-wiki.ps1 -Repo owner/holdings` copies them to the wiki.
 ## Privacy
 
 Your data stays on your machine. The app only contacts free public price and exchange-rate services (Yahoo Finance, the ASX, Vanguard Australia, Frankfurter/ECB), plus a web search if you ask for a private-company valuation. It never sends transaction amounts or personal details. The `data/` folder is git-ignored: don't commit it, and use invented figures in any tests or examples you add.
+
+## Licence
+
+FundTrack is free software, licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE). You may use, study, change and share it, and anything you distribute that is based on it must also be released under the GPL-3.0 with its source.
 
 ## Disclaimer
 

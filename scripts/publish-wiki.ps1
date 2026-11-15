@@ -2,9 +2,9 @@
 Publishes docs/wiki to the repository's GitHub wiki.
 
 GitHub wikis are only available for public repositories, or private ones on a paid plan. Enable "Wikis" in the repository
-settings and create the first page once in the browser (GitHub only creates the wiki repository then); after that:
+settings; if the wiki repository does not exist yet, create the first page once in the browser. Then:
 
-    ./scripts/publish-wiki.ps1 -Repo owner/fund-track
+    ./scripts/publish-wiki.ps1 -Repo owner/holdings
 
 Pages are copied with links rewritten from "Page.md" (which works when browsing the repository) to "Page" (which is how
 GitHub wikis link between pages).

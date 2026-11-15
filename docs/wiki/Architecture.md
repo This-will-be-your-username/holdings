@@ -90,6 +90,10 @@ browser  <->  net/http routes  <->  compute (pure functions)  <->  Store (JSON f
 
 When adding a feature, put the calculation in a pure function, give it a test with hand-checked numbers, and add the page to the smoke test.
 
+## Licence
+
+GPL-3.0. See `LICENSE` in the repository root.
+
 ## Contributing notes
 
 - Keep it dependency-free.

@@ -31,6 +31,10 @@ It runs on your own computer as a small web app. Your data stays in a single fil
 
 For how the code is organised, see [Architecture](Architecture.md).
 
+## Licence
+
+FundTrack is free software under the GNU General Public License v3.0.
+
 ## Important
 
 FundTrack produces **estimates for your own records. It is not tax, legal or financial advice.** Tax rules are simplified, and some situations (companies, trusts, SMSFs, joint holdings, non-residents, deductions) are not modelled. Check anything that matters with the ATO's own tools or a registered tax agent.
