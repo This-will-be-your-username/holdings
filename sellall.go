@@ -36,6 +36,10 @@ type SellAll struct {
 	Taxable             float64 // extra net capital gain added to the year
 	Tax, Pocket         float64
 	PrivateHeld         []string
+	IncludePrivate      bool
+	PrivateCount        int            // private holdings owned, whether or not they are in this sale
+	PrivateValue        float64        // their value at the latest checkpoints
+	PrivateProceeds     float64        // proceeds from private shares in this sale (0 when left out)
 	ByOwner             []SellAllOwner // set when the sale spans several owners: each is taxed in their own bracket
 	OtherIncomeSet      float64
 }
@@ -86,7 +90,10 @@ func topMarginalRate(fy string) float64 {
 	return (taxAndMedicare(fy, topBracketIncome+1000) - taxAndMedicare(fy, topBracketIncome)) / 1000
 }
 
-func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump) (*SellAll, error) {
+// SellAllEstimate prices selling every holding. Private shares are valued at their latest checkpoint and are included
+// when includePrivate is set; otherwise they are left out of the sale (but still reported, so the whole portfolio's
+// value is visible).
+func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump, includePrivate bool) (*SellAll, error) {
 	if _, err := time.Parse(dateFmt, date); err != nil {
 		return nil, fmt.Errorf("bad sale date")
 	}
@@ -94,14 +101,22 @@ func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump) (*Sell
 	setTopBracket(&s)
 	base := Compute(&s, now)
 	var reqs []SaleReq
-	sa := &SellAll{Date: date, FY: fyOf(date), OtherIncomeSet: topBracketIncome}
+	sa := &SellAll{Date: date, FY: fyOf(date), OtherIncomeSet: topBracketIncome, IncludePrivate: includePrivate}
 	for _, h := range base.Holdings {
-		reqs = append(reqs, SaleReq{Symbol: h.Symbol, All: true})
 		if h.Private {
+			sa.PrivateValue += h.ValueAUD
+			sa.PrivateCount++
+			if !includePrivate {
+				continue
+			}
 			sa.PrivateHeld = append(sa.PrivateHeld, h.Name)
 		}
+		reqs = append(reqs, SaleReq{Symbol: h.Symbol, All: true})
 	}
 	if len(reqs) == 0 {
+		if sa.PrivateCount > 0 && !includePrivate {
+			return nil, fmt.Errorf("everything you hold is private; tick \"Include private shares\" to price selling it")
+		}
 		return nil, fmt.Errorf("you don't hold anything to sell")
 	}
 	est, err := EstimateSale(&s, reqs, date, s.Settings.CGTMethod, now)
@@ -147,6 +162,9 @@ func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump) (*Sell
 	for i := range sa.Rows {
 		if in := db.Instruments[sa.Rows[i].Symbol]; in != nil {
 			sa.Rows[i].Private = in.Private
+			if in.Private {
+				sa.PrivateProceeds += sa.Rows[i].Proceeds
+			}
 		}
 	}
 	parts := est.Parts
@@ -191,7 +209,10 @@ func (a *App) sellAllPage(w http.ResponseWriter, r *http.Request) {
 	if len(res.Holdings) > 0 {
 		var sa *SellAll
 		var err error
-		a.st().View(func(db *DB) { sa, err = SellAllEstimate(db, date, now, nl) })
+		// the box is only "off" when the form was submitted without it; a bare link includes private shares
+		incPrivate := r.FormValue("sent") == "" || r.FormValue("private") != ""
+		data["IncludePrivate"] = incPrivate
+		a.st().View(func(db *DB) { sa, err = SellAllEstimate(db, date, now, nl, incPrivate) })
 		if err != nil {
 			data["Err"] = err.Error()
 		} else {

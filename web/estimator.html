@@ -274,15 +274,17 @@
 {{define "all"}}
 <section class="card">
   <form method="get" action="/estimator" class="inline">
-    <input type="hidden" name="mode" value="all">
+    <input type="hidden" name="mode" value="all"><input type="hidden" name="sent" value="1">
     <label class="inl">If I sold everything on <input type="date" name="date" value="{{.Date}}"></label>
+    <label class="check inl"><input type="checkbox" name="private" value="1" {{if .IncludePrivate}}checked{{end}}> Include private shares <small>(at their latest valuation)</small></label>
     <button class="btn primary">Recalculate</button>
   </form>
   <p class="muted s">Worked out as if every holding were sold in one go and the gain were taxed at the <b>top</b> marginal rate. Gains on parcels held over 12 months get the 50% discount; younger parcels are taxed in full; losses are set against gains first. Your own income and tax bracket are ignored, so this is a worst case.</p>
 </section>
 
 {{with .SA}}
-{{if .PrivateHeld}}<div class="flash warnnote">Includes private holdings valued at their latest checkpoint ({{range $i, $n := .PrivateHeld}}{{if $i}}, {{end}}{{$n}}{{end}}). These can't be sold on demand, so treat their figures as paper values.</div>{{end}}
+{{if .PrivateHeld}}<div class="flash warnnote">Includes private holdings valued at their latest checkpoint ({{range $i, $n := .PrivateHeld}}{{if $i}}, {{end}}{{$n}}{{end}}): <b>${{money .PrivateProceeds}}</b> of the proceeds. These can't be sold on demand, so treat their figures as paper values.</div>
+{{else if .PrivateCount}}<div class="flash">{{.PrivateCount}} private holding{{if ne .PrivateCount 1}}s{{end}} worth about <b>${{money .PrivateValue}}</b> {{if eq .PrivateCount 1}}is{{else}}are{{end}} left out of this sale. Tick <b>Include private shares</b> above to price the whole portfolio.</div>{{end}}
 <section class="stats">
   <div class="card stat"><span class="lbl">You&rsquo;d pocket</span><span class="big pos">${{money .Pocket}}</span><span class="sub">after brokerage and tax · {{.Date}}{{if .Est.Future}} (future date, today's prices){{end}}</span></div>
   <div class="card stat"><span class="lbl">Tax owed</span><span class="big {{if gt .Tax 0.005}}neg{{end}}">${{money .Tax}}</span><span class="sub">for {{.FY}} at the top rate ({{printf "%.0f" (mulf .Rate 100.0)}}% incl. Medicare)</span></div>

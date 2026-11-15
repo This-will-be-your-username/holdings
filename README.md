@@ -207,3 +207,5 @@ The sell and withdrawal estimators have a **Tax rate to assume** choice: the top
 ## Owners
 
 On the Tax tab you can add owners (optional) and tag each investment to the person or entity who holds it. Each owner has their own assumptions panel (other income, losses brought forward, parcel method) and their own tax position; an all-owners summary sits above. The sell, withdrawal and sell-everything estimators split a sale by owner, tax each owner's part on their own assumptions and add the results, with a per-owner table. Choosing the top bracket applies it to every owner. Untagged investments belong to the default owner, whose assumptions are the original ones. An investment has one owner; the same ticker held by two people needs two entries.
+
+The Sell everything tab has an **Include private shares** tick box (on by default). Private shares are priced at their latest checkpoint value; leave the box off to price only the sellable holdings, and the page still reports what the private shares are worth.
