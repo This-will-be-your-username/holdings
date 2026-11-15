@@ -1,6 +1,6 @@
 # Transactions
 
-Everything in FundTrack is derived from the transactions you record. Add them by hand here, or import them from a file ([Importing Transactions](Importing-Transactions)).
+Everything in FundTrack is derived from the transactions you record. Add them by hand here, or import them from a file ([Importing Transactions](Importing-Transactions.md)).
 
 ![Add transaction](images/add-transaction.jpg)
 
@@ -9,7 +9,7 @@ Everything in FundTrack is derived from the transactions you record. Add them by
 | Type | Meaning | Effect |
 |---|---|---|
 | **Buy** | You paid to acquire units. | Adds a tax parcel and cost (price × units + brokerage). Counts as money invested. |
-| **Sell** | You disposed of units. | Matched to parcels for capital gains ([Tax and CGT](Tax-and-CGT)). |
+| **Sell** | You disposed of units. | Matched to parcels for capital gains ([Tax and CGT](Tax-and-CGT.md)). |
 | **Distribution (cash)** | Income paid to you. | Income, with optional franking and tax detail. |
 | **Distribution reinvested (DRP)** | Income used to buy more units. | Income **and** a new parcel at the reinvestment price. |
 | **Shares awarded (RSU)** | Units received without paying cash, such as an RSU release. | Added at the market value on the vest date, which becomes the cost base. Treated as invested at that value for performance. |
@@ -46,7 +46,7 @@ If you know neither, enter the transfer date and the cost basis; the discount th
 
 ### Distribution tax details
 
-For distributions, **More options** has franked amount, franking credits, foreign tax, discountable and other capital gain components, tax-deferred (return of capital) amount and an optional tax year. Anything you don't break out is treated as unfranked income. Franked + capital gain + tax-deferred can't exceed the distribution. Details: [Tax and CGT](Tax-and-CGT).
+For distributions, **More options** has franked amount, franking credits, foreign tax, discountable and other capital gain components, tax-deferred (return of capital) amount and an optional tax year. Anything you don't break out is treated as unfranked income. Franked + capital gain + tax-deferred can't exceed the distribution. Details: [Tax and CGT](Tax-and-CGT.md).
 
 ## Distributions you may not have recorded
 

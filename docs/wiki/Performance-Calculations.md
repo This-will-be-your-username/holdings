@@ -22,7 +22,7 @@ Transactions are sorted by date (buys and awards, then reinvestments, then distr
 | **Total return** | Unrealised + realised + income (+ franking). The percentage is on money invested. |
 | **XIRR** | The annual rate that makes the net present value of your dated cash flows zero, so timing matters. See below. |
 
-Note that the performance figures use an **average-cost** basis. Tax calculations use **parcels** (each purchase separately), see [Tax and CGT](Tax-and-CGT).
+Note that the performance figures use an **average-cost** basis. Tax calculations use **parcels** (each purchase separately), see [Tax and CGT](Tax-and-CGT.md).
 
 ## Cash flows and XIRR
 
@@ -39,11 +39,11 @@ XIRR is **money-weighted**: it answers "what annual rate did *my* money earn, gi
 ## Special cases
 
 - **RSU awards** are counted as invested at their market value on the vest date, so gains are measured from vest.
-- **Private companies** are valued from your value checkpoints, carried forward between them. Nothing is estimated between checkpoints. See [Private Companies](Private-Companies).
+- **Private companies** are valued from your value checkpoints, carried forward between them. Nothing is estimated between checkpoints. See [Private Companies](Private-Companies.md).
 - **Foreign holdings** are valued at the latest exchange rate. The currency effect is therefore part of the return.
 - **Unlisted funds** use the unit price (NAV) from Vanguard or your entered prices.
 - **No price**: a holding with no market price is valued at your last trade price and flagged.
-- **Missing history**: if a holding's first record is a reinvestment, the dashboard warns that earlier purchases are probably missing, which understates units and value. Use [Reconcile](Reconcile).
+- **Missing history**: if a holding's first record is a reinvestment, the dashboard warns that earlier purchases are probably missing, which understates units and value. Use [Reconcile](Reconcile.md).
 
 ## Money invested
 
@@ -51,4 +51,4 @@ The **Invested** column and the dashed line on charts are cumulative money put i
 
 ## Not modelled
 
-Stock splits recorded as transactions (prices are split-adjusted by Yahoo; for unit counts, enter them as your broker reports), corporate actions such as mergers and spin-offs, and cash balances. See [Limitations and FAQ](Limitations-and-FAQ).
+Stock splits recorded as transactions (prices are split-adjusted by Yahoo; for unit counts, enter them as your broker reports), corporate actions such as mergers and spin-offs, and cash balances. See [Limitations and FAQ](Limitations-and-FAQ.md).

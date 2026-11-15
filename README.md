@@ -50,14 +50,16 @@ go test ./...      # run the tests (synthetic data, no network)
 
 ## Documentation
 
-**Full documentation is in the [wiki](../../wiki)**: every page and feature, how the calculations work, what is and isn't supported, configuration, privacy and the code layout. The same pages are kept in [`docs/wiki`](docs/wiki) in this repository.
+**Full documentation is in the wiki: start at [docs/wiki/Home.md](docs/wiki/Home.md).** It covers every page and feature, how the calculations work, what is and isn't supported, configuration, privacy and the code layout.
 
 - [Getting Started](docs/wiki/Getting-Started.md)
 - [Transactions](docs/wiki/Transactions.md) and [Importing Transactions](docs/wiki/Importing-Transactions.md)
 - [Tax and CGT](docs/wiki/Tax-and-CGT.md), [Owners](docs/wiki/Owners.md) and the [Sell Estimator](docs/wiki/Sell-Estimator.md)
+- [Private Companies](docs/wiki/Private-Companies.md), [Charts](docs/wiki/Charts.md) and [Reconcile](docs/wiki/Reconcile.md)
 - [Configuration and Data](docs/wiki/Configuration-and-Data.md) and [Architecture](docs/wiki/Architecture.md)
 - [Limitations and FAQ](docs/wiki/Limitations-and-FAQ.md)
 
+The pages are plain Markdown kept in the repository, so they are versioned with the code. GitHub's wiki feature is only available for public repositories (or private ones on a paid plan); to publish them as the repository's GitHub wiki, enable Wikis, create the first page once in the browser, then run `./scripts/publish-wiki.ps1 -Repo owner/fund-track`.
 ## Privacy
 
 Your data stays on your machine. The app only contacts free public price and exchange-rate services (Yahoo Finance, the ASX, Vanguard Australia, Frankfurter/ECB), plus a web search if you ask for a private-company valuation. It never sends transaction amounts or personal details. The `data/` folder is git-ignored: don't commit it, and use invented figures in any tests or examples you add.

@@ -1,6 +1,6 @@
 # Target Allocation
 
-The **Target allocation** page (a tab of the [Sell Estimator](Sell-Estimator)) records what each holding is *for*. The withdrawal planner uses it to decide what to sell, and judges each holding's performance against its own purpose instead of against a quick-return yardstick.
+The **Target allocation** page (a tab of the [Sell Estimator](Sell-Estimator.md)) records what each holding is *for*. The withdrawal planner uses it to decide what to sell, and judges each holding's performance against its own purpose instead of against a quick-return yardstick.
 
 ![Target allocation](images/target-allocation.jpg)
 
@@ -23,9 +23,9 @@ The table also shows the current value and weight, and a **progress** note for e
 2. **Performance against intent.** Each holding's return is compared with *its own* expected return. That verdict is weighted by how much of its intended horizon has passed: a 10-year growth holding two years in counts at 20%, while a short-term holding past its horizon counts in full. The result only nudges the target, by at most 10% of itself, so a long-term holding in a quiet patch isn't punished. Holdings with no purpose set are never judged on performance.
 3. **Tax.** Within each holding, the parcels with the lowest taxable gain are used first.
 
-Details and options: [Sell Estimator](Sell-Estimator).
+Details and options: [Sell Estimator](Sell-Estimator.md).
 
 ## Tips
 
 - Targets should add up to roughly 100%, but they don't have to. They are used as relative weights.
-- In [Test Mode](Test-Mode) a target mix (VGS 30%, VDHG 30%, VDGR 25%, VAN0110AU 15%) is seeded that deliberately differs from the current mix, so a withdrawal has something to rebalance.
+- In [Test Mode](Test-Mode.md) a target mix (VGS 30%, VDHG 30%, VDGR 25%, VAN0110AU 15%) is seeded that deliberately differs from the current mix, so a withdrawal has something to rebalance.

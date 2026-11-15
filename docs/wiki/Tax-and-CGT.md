@@ -11,9 +11,9 @@ The **Tax** page estimates the tax position on your investments for an Australia
 | **Other taxable income** | Your income per year from everything else (salary etc.), excluding these investments. Investment income is stacked on top of it to find the tax. |
 | **Which parcels are sold first** | First in, first out (the ATO default), highest cost first, or lowest taxable gain (discount-aware). A non-FIFO choice is only valid if you actually identify the parcels with your broker/records. |
 | **Capital losses brought forward** | Net capital losses from before your first year of data. |
-| **Include franking credits in return figures** | Whether franking credits count in [Performance Calculations](Performance-Calculations). |
+| **Include franking credits in return figures** | Whether franking credits count in [Performance Calculations](Performance-Calculations.md). |
 
-With [Owners](Owners) set up, every owner has their own panel for income, losses and parcel method.
+With [Owners](Owners.md) set up, every owner has their own panel for income, losses and parcel method.
 
 ## Estimate by income year
 
@@ -57,11 +57,11 @@ CGT is **parcel-based**:
 
 - An **award** is acquired on the vest date with a cost base equal to its market value that day.
 - A **transfer in** keeps its original cost basis and, if known, its original acquisition date.
-- If you don't know the acquisition date but are sure the units were held over 12 months, the **held over 12 months** flag treats the parcel as acquired a year and a day before the date. See [Transactions](Transactions).
+- If you don't know the acquisition date but are sure the units were held over 12 months, the **held over 12 months** flag treats the parcel as acquired a year and a day before the date. See [Transactions](Transactions.md).
 
 ## Tax-deferred employee shares
 
-For awarded shares in a private company on which **no tax has been paid yet** (an employee share scheme with tax deferred until sale), tick *No tax has been paid on my awarded shares* in the company's details on the [Private Companies](Private-Companies) page. Selling those shares then:
+For awarded shares in a private company on which **no tax has been paid yet** (an employee share scheme with tax deferred until sale), tick *No tax has been paid on my awarded shares* in the company's details on the [Private Companies](Private-Companies.md) page. Selling those shares then:
 
 - counts the **whole sale value** as ordinary income, taxed in full at your marginal rate;
 - gives **no 50% discount** and creates **no capital gain or loss**, so it no longer offsets gains on your listed holdings;
@@ -71,7 +71,7 @@ Whether tax is deferred, and when the taxing point is, depends on your scheme. C
 
 ## CGT before and after 1 July 2027
 
-The Treasury Laws Amendment (Tax Reform No. 1) Act 2026 changes how CGT works from 1 July 2027. The [Sell Estimator](Sell-Estimator) prices the same sale under both sets of rules side by side. The Tax page itself applies the **current** rules to everything recorded, including any sales dated on or after 1 July 2027.
+The Treasury Laws Amendment (Tax Reform No. 1) Act 2026 changes how CGT works from 1 July 2027. The [Sell Estimator](Sell-Estimator.md) prices the same sale under both sets of rules side by side. The Tax page itself applies the **current** rules to everything recorded, including any sales dated on or after 1 July 2027.
 
 ## Exports
 
@@ -85,4 +85,4 @@ Each export follows the selected income year and owner:
 
 ## Not modelled
 
-The Medicare levy low-income reduction and surcharge, HELP/HECS, deductions and offsets other than franking and foreign income, companies, trusts, SMSFs and joint holdings (see [Owners](Owners) for a partial workaround), wash-sale and trading-stock rules, foreign-currency hedging, and non-resident or part-year residency. See [Limitations and FAQ](Limitations-and-FAQ).
+The Medicare levy low-income reduction and surcharge, HELP/HECS, deductions and offsets other than franking and foreign income, companies, trusts, SMSFs and joint holdings (see [Owners](Owners.md) for a partial workaround), wash-sale and trading-stock rules, foreign-currency hedging, and non-resident or part-year residency. See [Limitations and FAQ](Limitations-and-FAQ.md).

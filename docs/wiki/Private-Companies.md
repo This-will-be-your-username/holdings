@@ -7,7 +7,7 @@ Shares in a company that isn't listed have no market price. The **Private** page
 ## Adding a company and your shares
 
 1. **Add a private company**: name, currency, optionally the **shares on issue** (fully diluted) and a different name to **search for**. The symbol is generated from the name.
-2. Record your shares as ordinary **buy / sell / award** transactions on the [Transactions](Transactions) page with market *Private company*. A currency box on that form sets the currency for a new company.
+2. Record your shares as ordinary **buy / sell / award** transactions on the [Transactions](Transactions.md) page with market *Private company*. A currency box on that form sets the currency for a new company.
 3. Record **value checkpoints**.
 
 ## Value checkpoints
@@ -32,7 +32,7 @@ The holding is valued at its **latest checkpoint**, carried forward until you re
 - **Use as a checkpoint…** fills in the form for you to review. **Nothing is saved until you press Save.**
 - A figure in another currency is converted to the company's currency at the exchange rate on the article's date, with the original amount shown.
 - If the search service doesn't respond, an error and an **Open web search** link let you search yourself.
-- The search is disabled in [Test Mode](Test-Mode).
+- The search is disabled in [Test Mode](Test-Mode.md).
 
 ## Currency
 
@@ -40,12 +40,12 @@ A private company can be tracked in any currency. Prices, checkpoints and cost s
 
 ## Tax-deferred employee shares
 
-If the shares were awarded under an employee share scheme and **no tax has been paid yet**, tick *No tax has been paid on my awarded shares* in **Company details**. Selling then counts the whole sale value as ordinary income, taxed in full with no 50% discount and no capital gain or loss. Without this, awarded shares recorded at their value on the award date can produce a capital *loss* when the value falls, which would wrongly offset gains on your listed holdings. See [Tax and CGT](Tax-and-CGT).
+If the shares were awarded under an employee share scheme and **no tax has been paid yet**, tick *No tax has been paid on my awarded shares* in **Company details**. Selling then counts the whole sale value as ordinary income, taxed in full with no 50% discount and no capital gain or loss. Without this, awarded shares recorded at their value on the award date can produce a capital *loss* when the value falls, which would wrongly offset gains on your listed holdings. See [Tax and CGT](Tax-and-CGT.md).
 
 ## Selling and private shares
 
 - The **withdrawal planner** never suggests private holdings, because they can't be sold on demand.
-- **Sell everything** has an *Include private shares* tick box. See [Sell Estimator](Sell-Estimator).
+- **Sell everything** has an *Include private shares* tick box. See [Sell Estimator](Sell-Estimator.md).
 - They can be priced in *Sell specific holdings*. Treat the figures as paper values.
 
 ## Deleting a company

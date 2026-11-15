@@ -1,33 +1,33 @@
 **FundTrack**
 
-* [Home](Home)
-* [Getting Started](Getting-Started)
+* [Home](Home.md)
+* [Getting Started](Getting-Started.md)
 
 **Using it**
 
-* [Dashboard](Dashboard)
-* [Transactions](Transactions)
-* [Importing Transactions](Importing-Transactions)
-* [Prices and Exchange Rates](Prices-and-Exchange-Rates)
-* [Charts](Charts)
-* [Reconcile](Reconcile)
+* [Dashboard](Dashboard.md)
+* [Transactions](Transactions.md)
+* [Importing Transactions](Importing-Transactions.md)
+* [Prices and Exchange Rates](Prices-and-Exchange-Rates.md)
+* [Charts](Charts.md)
+* [Reconcile](Reconcile.md)
 
 **Tax and selling**
 
-* [Tax and CGT](Tax-and-CGT)
-* [Owners](Owners)
-* [Sell Estimator](Sell-Estimator)
-* [Private Companies](Private-Companies)
+* [Tax and CGT](Tax-and-CGT.md)
+* [Owners](Owners.md)
+* [Sell Estimator](Sell-Estimator.md)
+* [Private Companies](Private-Companies.md)
 
 **Planning**
 
-* [Target Allocation](Target-Allocation)
-* [Outlook](Outlook)
-* [Performance Calculations](Performance-Calculations)
+* [Target Allocation](Target-Allocation.md)
+* [Outlook](Outlook.md)
+* [Performance Calculations](Performance-Calculations.md)
 
 **Reference**
 
-* [Test Mode](Test-Mode)
-* [Configuration and Data](Configuration-and-Data)
-* [Architecture](Architecture)
-* [Limitations and FAQ](Limitations-and-FAQ)
+* [Test Mode](Test-Mode.md)
+* [Configuration and Data](Configuration-and-Data.md)
+* [Architecture](Architecture.md)
+* [Limitations and FAQ](Limitations-and-FAQ.md)

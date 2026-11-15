@@ -8,7 +8,7 @@ All data sources are free and need no account or API key.
 | ASX distribution pay date and franking % | The ASX's public research API. |
 | Vanguard unlisted fund unit prices | Vanguard Australia's own site API, the data behind each fund's *Prices and distributions* tab. |
 | AUD exchange rates | The European Central Bank via Frankfurter (`api.frankfurter.dev`). |
-| Market context (S&P/ASX 200, S&P 500, VIX, AUD/USD) for the [Outlook](Outlook) | Yahoo Finance. |
+| Market context (S&P/ASX 200, S&P 500, VIX, AUD/USD) for the [Outlook](Outlook.md) | Yahoo Finance. |
 
 ## Live prices
 
@@ -42,7 +42,7 @@ Hold the fund under its **APIR code** (for example `VAN0108AU`, market *Unlisted
 
 ### Other unlisted holdings
 
-Unlisted funds without a Vanguard link, and private companies, are priced from the prices you enter. For private companies use value checkpoints: [Private Companies](Private-Companies).
+Unlisted funds without a Vanguard link, and private companies, are priced from the prices you enter. For private companies use value checkpoints: [Private Companies](Private-Companies.md).
 
 ## Exchange rates
 

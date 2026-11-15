@@ -26,7 +26,7 @@ Tax is always computed **per owner**:
 
 ## Selling across owners
 
-The [Sell Estimator](Sell-Estimator) splits a sale by owner:
+The [Sell Estimator](Sell-Estimator.md) splits a sale by owner:
 
 - Each owner's part is taxed on **their own** assumptions, then the results are added.
 - A **Tax by owner** table shows each owner's net proceeds, capital gain added, tax, cash after tax and the income assumed.

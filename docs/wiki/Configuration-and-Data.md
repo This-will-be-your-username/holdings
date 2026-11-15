@@ -6,9 +6,9 @@
 |---|---|---|
 | `ADDR` | `127.0.0.1:8080` | Listen address. The default accepts connections only from the same machine. |
 | `DATA_FILE` | `data/fundtrack.json` | Path of the data file. Other files are created beside it. |
-| `TEST_MODE` | unset | `1` start in [Test Mode](Test-Mode), `0` force real data. |
+| `TEST_MODE` | unset | `1` start in [Test Mode](Test-Mode.md), `0` force real data. |
 
-Tax assumptions (other income, parcel method, losses brought forward) and owners are stored in the data file and edited on the [Tax](Tax-and-CGT) page.
+Tax assumptions (other income, parcel method, losses brought forward) and owners are stored in the data file and edited on the [Tax](Tax-and-CGT.md) page.
 
 ## Files
 
@@ -47,7 +47,7 @@ All requests are made by the app on your behalf, and none needs an account or ke
 | Frankfurter (ECB rates) | Exchange rates | Currency codes and dates |
 | DuckDuckGo (HTML) | Only when you press *Search for a valuation* on a private company | The company name |
 
-No transaction amounts, units, balances or personal details are sent anywhere. In [Test Mode](Test-Mode) price fetching and the valuation search are switched off.
+No transaction amounts, units, balances or personal details are sent anywhere. In [Test Mode](Test-Mode.md) price fetching and the valuation search are switched off.
 
 ## Upgrading
 
@@ -58,7 +58,7 @@ Pull the new code and rebuild. The data file format is extended in a backwards-c
 | Symptom | Likely cause |
 |---|---|
 | Prices stuck, a red note on the dashboard | A feed failed or was rate-limited. The note says which. Try *Refresh prices* later. |
-| A holding is valued at your last trade price | No market price could be found. Check the symbol, or for unlisted funds enter or import prices on [Fund prices](Prices-and-Exchange-Rates). |
+| A holding is valued at your last trade price | No market price could be found. Check the symbol, or for unlisted funds enter or import prices on [Fund prices](Prices-and-Exchange-Rates.md). |
 | An exchange rate warning | The latest rate is over a week old. Press *Refresh exchange rates now* on the Fund prices page. |
-| Total is lower than your provider's | Earlier history wasn't imported. Use [Reconcile](Reconcile). |
+| Total is lower than your provider's | Earlier history wasn't imported. Use [Reconcile](Reconcile.md). |
 | Changes under `web/` don't appear | The assets are embedded in the binary. Rebuild. |

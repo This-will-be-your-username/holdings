@@ -51,7 +51,7 @@ Rows with wording such as *Release*, *Vest*, *Vested*, *Stock award*, *Award* or
 - Map a **cost basis** column. Headers like "Cost basis", "Cost base", "Original cost" are read as the total; "Cost basis per share" is read per unit.
 - If the file has an **original acquisition / vest date** column ("Date acquired", "Vest date"), the transaction is dated that day so the discount follows it, and the transfer date goes into the notes.
 - Without an acquisition date the transfer date is used and the review screen warns you.
-- A transfer row with **no cost basis is rejected** instead of being priced at market value. Add the cost on the [Transactions](Transactions) page, or add a cost basis column to the file.
+- A transfer row with **no cost basis is rejected** instead of being priced at market value. Add the cost on the [Transactions](Transactions.md) page, or add a cost basis column to the file.
 - Transfers out are ignored.
 
 ## Examples of layouts that work
@@ -64,4 +64,4 @@ The importer is heuristic. When a file is unusual, use the review page to correc
 
 ## Sample files
 
-In [Test Mode](Test-Mode) the banner offers a sample broker CSV and a sample fund statement built from the test data, so you can try the duplicate handling without any real data.
+In [Test Mode](Test-Mode.md) the banner offers a sample broker CSV and a sample fund statement built from the test data, so you can try the duplicate handling without any real data.
