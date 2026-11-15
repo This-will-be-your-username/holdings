@@ -6,10 +6,10 @@
 {{$c := .}}
 <section class="card" id="co-{{.Symbol}}">
   <div class="card-h"><h2>{{.Name}} <span class="tag">{{.Symbol}}</span></h2>
-    <span class="muted s">{{.Currency}}{{if .SharesOut}} · {{num4 .SharesOut}} shares on issue{{end}}</span></div>
+    <span class="muted s">{{.Currency}}{{if .SharesOut}} · {{units .SharesOut}} shares on issue{{end}}</span></div>
 
   <div class="fund-status">
-    <div><span class="lbl">Your holding</span><br><b>{{if .Units}}{{num4 .Units}} shares{{else}}none recorded{{end}}</b></div>
+    <div><span class="lbl">Your holding</span><br><b>{{if .Units}}{{units .Units}} shares{{else}}none recorded{{end}}</b></div>
     <div><span class="lbl">Latest checkpoint</span><br>{{if .PriceDate}}{{if .PriceAUD}}<b>A${{num4 .PriceAUD}}</b> <span class="muted s">({{.Currency}} {{num4 .Price}})</span>{{else}}<b>{{.Currency}} {{num4 .Price}}</b>{{end}} <span class="muted s">per share, {{.PriceDate}}</span>{{else}}<span class="muted">none yet</span>{{end}}</div>
     {{if .Units}}<div><span class="lbl">Valued at (AUD)</span><br><b>${{money .ValueAUD}}</b>{{if ne .Currency "AUD"}} <span class="muted s">({{.Currency}} {{money .ValueNative}})</span>{{end}} <span class="muted s">cost ${{money .CostAUD}}</span></div>{{end}}
     {{if .RateNow}}<div><span class="lbl">Exchange rate</span><br><b>1 {{.Currency}} = A${{printf "%.4f" .RateNow}}</b> <span class="muted s">latest, {{.RateDate}}</span></div>{{end}}

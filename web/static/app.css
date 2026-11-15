@@ -299,3 +299,5 @@ h3.owner-h{margin:18px 0 6px}
 .txn-form [hidden]{display:none!important}
 @media (max-width:860px){.txn-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:520px){.txn-grid{grid-template-columns:1fr}.txn-form details.more>summary .fhint{display:block;margin:2px 0 0}}
+@media (max-width:560px){.xp-dates input{font-size:13.5px;padding:6px 6px}}
+form.stack label.check,.stack label.check{align-self:flex-start;padding-bottom:0}
