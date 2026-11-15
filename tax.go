@@ -157,7 +157,12 @@ func cgtReplay(rows []Row, method, estMethod string, picks map[string][]Pick) ([
 		switch r.Type {
 		case "buy", "drp", "award":
 			d, _ := time.Parse(dateFmt, r.Date)
-			parcels[r.Symbol] = append(parcels[r.Symbol], &parcel{acq: d, acqS: r.Date, units: r.Units, cost: r.GrossAUD, seq: len(parcels[r.Symbol])})
+			acqS := r.Date
+			if r.LongTerm && (r.Type == "buy" || r.Type == "award") {
+				d = d.AddDate(-1, 0, -1) // known to be over 12 months old; the exact day isn't
+				acqS = d.Format(dateFmt)
+			}
+			parcels[r.Symbol] = append(parcels[r.Symbol], &parcel{acq: d, acqS: acqS, units: r.Units, cost: r.GrossAUD, seq: len(parcels[r.Symbol])})
 		case "sell":
 			sold, _ := time.Parse(dateFmt, r.Date)
 			ps := parcels[r.Symbol]

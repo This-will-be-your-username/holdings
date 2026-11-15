@@ -65,6 +65,10 @@ type Txn struct {
 	TaxDeferred float64 `json:"tax_deferred,omitempty"` // tax-deferred / return of capital (reduces cost base)
 	TaxYear     string  `json:"tax_year,omitempty"`     // override income year, e.g. 2025-26
 
+	// LongTerm: the exact acquisition date is unknown but the units were held over 12 months before this date (shares
+	// transferred in with only their cost basis). For tax the parcel is treated as acquired a year and a day earlier.
+	LongTerm bool `json:"long_term,omitempty"`
+
 	// Provenance, used to recognise the same transaction in later uploads.
 	FP     string `json:"fp,omitempty"`     // content fingerprint (see fingerprint.go)
 	Ref    string `json:"ref,omitempty"`    // institution reference (contract note / transaction id), if the file had one

@@ -200,7 +200,7 @@ func (a *App) txnPage(w http.ResponseWriter, r *http.Request, form map[string]st
 func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	form := map[string]string{}
-	for _, k := range []string{"market", "symbol", "name", "currency", "type", "date", "acq_date", "units", "price", "total_cost", "fees", "amount", "fx", "notes",
+	for _, k := range []string{"market", "symbol", "name", "currency", "type", "date", "acq_date", "long_term", "units", "price", "total_cost", "fees", "amount", "fx", "notes",
 		"franked", "franking", "foreign_tax", "cg_disc", "cg_other", "tax_deferred", "tax_year"} {
 		form[k] = strings.TrimSpace(r.FormValue(k))
 	}
@@ -243,6 +243,15 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 			date = ad
 		}
 	}
+	longTerm := false
+	if r.FormValue("long_term") != "" && form["acq_date"] == "" {
+		if form["type"] != "buy" && form["type"] != "award" {
+			fail("\"held over 12 months\" only applies to a buy or an award")
+			return
+		}
+		longTerm = true
+		xferNote = "Transferred in on " + date + "; exact acquisition date unknown, held over 12 months assumed for the CGT discount"
+	}
 	units, price := pnum(form["units"]), pnum(form["price"])
 	var priceNote string
 	if r.FormValue("total_cost") != "" && price > 0 { // the figure typed is the whole cost basis, not per share
@@ -275,7 +284,7 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 		priceNote = "price looked up: market close on " + used
 	}
 	t := Txn{ID: newID(), Date: date, Symbol: sym, Type: form["type"],
-		Units: units, Price: price, Fees: pnum(form["fees"]),
+		LongTerm: longTerm, Units: units, Price: price, Fees: pnum(form["fees"]),
 		Amount: pnum(form["amount"]), FX: pnum(form["fx"]), Notes: form["notes"],
 		Franked: pnum(form["franked"]), Franking: pnum(form["franking"]), ForeignTax: pnum(form["foreign_tax"]),
 		CGDisc: pnum(form["cg_disc"]), CGOther: pnum(form["cg_other"]), TaxDeferred: pnum(form["tax_deferred"]),

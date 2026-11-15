@@ -132,3 +132,45 @@ func TestManualTransferInKeepsOriginalAcquisitionDate(t *testing.T) {
 		}
 	}
 }
+
+func TestLongTermAssumptionGivesTheCGTDiscountWithoutAnAcquisitionDate(t *testing.T) {
+	fakeYahooServer(t, fakeChart)
+	a, _ := newApp(t.TempDir() + "/d.json")
+	// transferred in with only a cost basis; the box says it was held over 12 months
+	r := postTxn(t, a, url.Values{"market": {"ASX"}, "symbol": {"VAS"}, "type": {"award"}, "date": {"2025-06-20"}, "units": {"100"},
+		"price": {"1500"}, "total_cost": {"1"}, "long_term": {"1"}})
+	if r.Code != 303 || strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("add: %s", r.Header().Get("Location"))
+	}
+	if tx := lastTxn(a); !tx.LongTerm || tx.Date != "2025-06-20" || tx.Price != 15 || !strings.Contains(tx.Notes, "over 12 months assumed") {
+		t.Fatalf("txn %+v", tx)
+	}
+	// the same holding without the box is a new parcel and a sale a week later gets no discount
+	postTxn(t, a, url.Values{"market": {"ASX"}, "symbol": {"VAS"}, "type": {"buy"}, "date": {"2025-06-20"}, "units": {"100"}, "price": {"15"}})
+	a.st().Update(func(db *DB) error {
+		db.Txns = append(db.Txns, Txn{ID: "s1", Date: "2025-06-27", Symbol: "VAS.AX", Type: "sell", Units: 200, Price: 20})
+		return nil
+	})
+	a.st().View(func(db *DB) {
+		res := Compute(db, time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC))
+		tr := ComputeTax(db, res.Rows, time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC))
+		var long, short int
+		for _, e := range tr.All {
+			if e.Kind != "sale" {
+				continue
+			}
+			if e.Discount {
+				long++
+			} else {
+				short++
+			}
+		}
+		if long != 1 || short != 1 {
+			t.Fatalf("expected one discounted and one full-rate parcel, got long=%d short=%d (%+v)", long, short, tr.All)
+		}
+	})
+	// ignored when an exact date is given, and refused for sells
+	if r := postTxn(t, a, url.Values{"market": {"ASX"}, "symbol": {"VAS"}, "type": {"sell"}, "date": {"2025-06-28"}, "units": {"1"}, "price": {"5"}, "long_term": {"1"}}); r.Code == 303 {
+		t.Error("a sell can't be marked long-term")
+	}
+}
