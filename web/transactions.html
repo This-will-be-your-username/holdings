@@ -104,7 +104,7 @@
       <td class="r">{{if ne .Currency "AUD"}}{{printf "%.4f" .FXUsed}}{{end}}</td>
       <td class="r">{{money .GrossAUD}}{{if .Franking}}<div class="muted s">+{{money .Franking}} franking</div>{{end}}{{if .TaxDeferred}}<div class="muted s">{{money .TaxDeferred}} tax-deferred</div>{{end}}{{if .Warn}}<div class="warn s">⚠ {{.Warn}}</div>{{end}}</td>
       <td class="r {{cls .Realised}}">{{if eq .Type "sell"}}{{signed .Realised}}{{end}}</td>
-      <td class="r"><form method="post" action="/transactions/delete" onsubmit="return confirm('Delete this transaction?')"><input type="hidden" name="id" value="{{.ID}}"><button class="x" title="Delete">✕</button></form></td>
+      <td class="r"><a class="x" href="/transactions/edit?id={{.ID}}" title="Edit (e.g. correct the cost basis)" aria-label="Edit transaction">✎</a><form method="post" action="/transactions/delete" onsubmit="return confirm('Delete this transaction?')"><input type="hidden" name="id" value="{{.ID}}"><button class="x" title="Delete">✕</button></form></td>
     </tr>{{else}}<tr><td colspan="10" class="muted">Nothing recorded yet.</td></tr>{{end}}
     </tbody>
   </table></div>

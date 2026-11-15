@@ -1,0 +1,22 @@
+{{define "content"}}
+<div class="head"><div><h1>Edit transaction</h1>
+<p class="muted"><b>{{typeLabel .T.Type}}</b> · {{short .T.Symbol}} · {{.Inst.Name}} · {{.Inst.Currency}}</p></div>
+<div class="actions"><a class="btn" href="/transactions">Back</a></div></div>
+
+<section class="card">
+  <form method="post" action="/transactions/edit" class="grid">
+    <input type="hidden" name="id" value="{{.T.ID}}">
+    <label>Date <input type="date" name="date" required value="{{.T.Date}}"></label>
+    {{if ne .T.Type "dividend"}}<label>Units <input name="units" inputmode="decimal" value="{{units .T.Units}}"></label>{{end}}
+    {{if .Prices}}<label>Price or cost basis <small>({{.Inst.Currency}}, per unit unless ticked below)</small> <input name="price" inputmode="decimal" value="{{printf "%.6f" .T.Price}}"></label>
+    <label class="check wide"><input type="checkbox" name="total_cost" value="1"><span>The figure above is the <b>total</b> cost basis for all {{units .T.Units}} units, not per unit <small>(currently {{.Inst.Currency}} {{money .Total}} in total)</small></span></label>{{end}}
+    <label>Brokerage <small>(AUD)</small> <input name="fees" inputmode="decimal" value="{{if .T.Fees}}{{printf "%.2f" .T.Fees}}{{end}}"></label>
+    {{if or (eq .T.Type "dividend") (eq .T.Type "drp")}}<label>Distribution amount <input name="amount" inputmode="decimal" value="{{printf "%.2f" .T.Amount}}"></label>{{end}}
+    <label>FX rate <small>(AUD per 1 {{.Inst.Currency}} — blank = automatic rate for the date)</small> <input name="fx" inputmode="decimal" value="{{if .T.FX}}{{printf "%.6f" .T.FX}}{{end}}"></label>
+    {{if .Acquires}}<label class="check wide"><input type="checkbox" name="long_term" value="1" {{if .T.LongTerm}}checked{{end}}><span>Treat as held over 12 months before this date <small>(acquisition date unknown)</small></span></label>{{end}}
+    <label class="wide">Notes <input name="notes" value="{{.T.Notes}}"></label>
+    <div class="wide"><button class="btn primary">Save changes</button></div>
+  </form>
+  <p class="muted s">Importing the same broker row again is still recognised as a duplicate after an edit, so the old figures won't come back. For capital gains the cost basis is converted to AUD at the exchange rate for the date (or the rate you enter above).</p>
+</section>
+{{end}}

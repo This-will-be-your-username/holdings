@@ -28,7 +28,7 @@ type App struct {
 	modes     // real vs test data stores (see testmode.go)
 }
 
-var pageNames = []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan", "reconcile", "private", "charts"}
+var pageNames = []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan", "reconcile", "private", "charts", "txnedit"}
 
 // newApp opens the data stores and parses every page template.
 func newApp(dataFile string) (*App, error) {
@@ -66,6 +66,7 @@ func (a *App) routes() http.Handler {
 	a.registerPrices(mux)
 	a.registerReconcile(mux)
 	a.registerPrivate(mux)
+	a.registerTxnEdit(mux)
 	mux.HandleFunc("GET /charts", a.chartsPage)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
