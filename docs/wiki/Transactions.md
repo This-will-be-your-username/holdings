@@ -1,6 +1,6 @@
 # Transactions
 
-Everything in FundTrack is derived from the transactions you record. Add them by hand here, or import them from a file ([Importing Transactions](Importing-Transactions.md)).
+Everything in Holdings is derived from the transactions you record. Add them by hand here, or import them from a file ([Importing Transactions](Importing-Transactions.md)).
 
 ![Add transaction](images/add-transaction.jpg)
 
@@ -27,13 +27,13 @@ The main fields are always visible:
 
 ### Prices are looked up for listed shares
 
-For ASX and US buys, sells and awards, leave **Price** blank and FundTrack uses the market close on the transaction date (the previous trading day for weekends and holidays, within a week). The note on the transaction records where the price came from. If no price can be found you get an error asking for one. Future dates are refused.
+For ASX and US buys, sells and awards, leave **Price** blank and Holdings uses the market close on the transaction date (the previous trading day for weekends and holidays, within a week). The note on the transaction records where the price came from. If no price can be found you get an error asking for one. Future dates are refused.
 
 Unlisted funds and private companies have no market price, so you must enter a price or cost basis.
 
 ### Cost basis for older holdings
 
-For holdings from before your price history, type your **own cost basis** in the price field. It is used exactly as typed and never overridden. If you only know the **total** cost, tick *Total for all the units, not per unit* and FundTrack divides by the units. Brokerage is a separate field and isn't part of the total you type.
+For holdings from before your price history, type your **own cost basis** in the price field. It is used exactly as typed and never overridden. If you only know the **total** cost, tick *Total for all the units, not per unit* and Holdings divides by the units. Brokerage is a separate field and isn't part of the total you type.
 
 ### Shares transferred from another broker
 

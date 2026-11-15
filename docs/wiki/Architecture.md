@@ -1,6 +1,6 @@
 # Architecture
 
-FundTrack is a single Go program using only the standard library. It serves server-rendered HTML pages (`html/template`) with small amounts of embedded JavaScript, and keeps all data in a JSON file.
+Holdings is a single Go program using only the standard library. It serves server-rendered HTML pages (`html/template`) with small amounts of embedded JavaScript, and keeps all data in a JSON file.
 
 ```
 browser  <->  net/http routes  <->  compute (pure functions)  <->  Store (JSON file)

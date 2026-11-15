@@ -12,7 +12,7 @@ All data sources are free and need no account or API key.
 
 ## Live prices
 
-While a market is open, FundTrack polls a small quote for every listed holding about every **30 seconds**:
+While a market is open, Holdings polls a small quote for every listed holding about every **30 seconds**:
 
 - ASX: 10:00 to 16:10 Sydney time. US: 09:30 to 16:00 New York time.
 - Weekends and public holidays are detected from the trading session Yahoo returns with each quote.
@@ -33,7 +33,7 @@ The background refresh runs every 30 minutes. "History saved" on the dashboard o
 
 ### Vanguard unlisted funds
 
-Hold the fund under its **APIR code** (for example `VAN0108AU`, market *Unlisted fund*). FundTrack finds Vanguard's fund id from the APIR code automatically and fetches the daily NAV history. You can also set the fund id by hand (the number after `portId=` in the fund page's address).
+Hold the fund under its **APIR code** (for example `VAN0108AU`, market *Unlisted fund*). Holdings finds Vanguard's fund id from the APIR code automatically and fetches the daily NAV history. You can also set the fund id by hand (the number after `portId=` in the fund page's address).
 
 - Prices are fetched on refresh (at most a few times a day) or with **Fetch from Vanguard now**.
 - **Import price history** reads Vanguard's export (`.xlsx` or CSV with `Date, Buy, Sell, NAV`, or any date/price table). NAV is preferred, then unit price, then sell, then buy. Imported prices override fetched ones on the same date.

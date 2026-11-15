@@ -1,6 +1,6 @@
-# FundTrack wiki
+# Holdings wiki
 
-FundTrack is a personal investment tracker for Australian investors, written in Go with no third-party dependencies. It tracks ASX ETFs and shares, US stocks, Vanguard unlisted funds and private-company shares, measures **your own** performance from the transactions you recorded (not the fund's headline numbers), and estimates Australian tax, capital gains and the cost of selling.
+Holdings is a personal investment tracker for Australian investors, written in Go with no third-party dependencies. It tracks ASX ETFs and shares, US stocks, Vanguard unlisted funds and private-company shares, measures **your own** performance from the transactions you recorded (not the fund's headline numbers), and estimates Australian tax, capital gains and the cost of selling.
 
 It runs on your own computer as a small web app. Your data stays in a single file on your machine.
 
@@ -33,11 +33,11 @@ For how the code is organised, see [Architecture](Architecture.md).
 
 ## Licence
 
-FundTrack is free software under the GNU General Public License v3.0.
+Holdings is free software under the GNU General Public License v3.0.
 
 ## Important
 
-FundTrack produces **estimates for your own records. It is not tax, legal or financial advice.** Tax rules are simplified, and some situations (companies, trusts, SMSFs, joint holdings, non-residents, deductions) are not modelled. Check anything that matters with the ATO's own tools or a registered tax agent.
+Holdings produces **estimates for your own records. It is not tax, legal or financial advice.** Tax rules are simplified, and some situations (companies, trusts, SMSFs, joint holdings, non-residents, deductions) are not modelled. Check anything that matters with the ATO's own tools or a registered tax agent.
 
 ![Mobile dashboard](images/mobile-dashboard.jpg)
 

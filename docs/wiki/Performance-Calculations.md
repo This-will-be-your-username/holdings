@@ -1,6 +1,6 @@
 # Performance Calculations
 
-FundTrack measures **your** return: it replays your transactions in date order and works out cost, value, income and money-weighted return from what you actually did.
+Holdings measures **your** return: it replays your transactions in date order and works out cost, value, income and money-weighted return from what you actually did.
 
 ## Replaying transactions
 

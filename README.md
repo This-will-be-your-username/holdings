@@ -1,4 +1,4 @@
-# FundTrack
+# Holdings
 
 A personal investment tracker for Australian investors. It measures **your own** performance from the transactions you record, estimates Australian tax and capital gains, and tells you what a sale would cost before you make it.
 
@@ -66,8 +66,8 @@ Your data stays on your machine. The app only contacts free public price and exc
 
 ## Licence
 
-FundTrack is free software, licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE). You may use, study, change and share it, and anything you distribute that is based on it must also be released under the GPL-3.0 with its source.
+Holdings is free software, licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE). You may use, study, change and share it, and anything you distribute that is based on it must also be released under the GPL-3.0 with its source.
 
 ## Disclaimer
 
-FundTrack produces **estimates for your own records. It is not tax, legal or financial advice.** Tax rules are simplified and some situations are not modelled (companies, trusts, SMSFs, joint holdings, non-residents, deductions). Check anything that matters with the ATO or a registered tax agent.
+Holdings produces **estimates for your own records. It is not tax, legal or financial advice.** Tax rules are simplified and some situations are not modelled (companies, trusts, SMSFs, joint holdings, non-residents, deductions). Check anything that matters with the ATO or a registered tax agent.
