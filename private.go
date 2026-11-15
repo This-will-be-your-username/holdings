@@ -417,6 +417,8 @@ type privRow struct {
 	Units, ValueAUD, CostAUD           float64
 	Price                              float64
 	PriceAUD, FXRate                   float64 // the latest price in AUD and the rate used (foreign companies only)
+	ValueNative, RateNow               float64 // holding value in the company's own currency, and the latest AUD rate for it
+	RateDate                           string
 	FXDate                             string
 	PriceDate                          string
 	AgeDays                            int
@@ -453,6 +455,12 @@ func (a *App) privatePage(w http.ResponseWriter, r *http.Request, searchSym stri
 				WebSearch: "https://duckduckgo.com/?q=" + url.QueryEscape(`"`+term+`" valuation funding round`)}
 			if h := held[inst.Symbol]; h != nil {
 				p.Units, p.ValueAUD, p.CostAUD = h.Units, h.ValueAUD, h.CostAUD
+				p.ValueNative = h.Units * h.Price
+				if inst.Currency != "AUD" {
+					if v, d, ok := newSeries(db.FX[inst.Currency]).Last(); ok {
+						p.RateNow, p.RateDate = v, d
+					}
+				}
 			}
 			for i := len(db.Checkpoints[inst.Symbol]) - 1; i >= 0; i-- {
 				p.Checkpoints = append(p.Checkpoints, db.Checkpoints[inst.Symbol][i])
@@ -501,6 +509,7 @@ func (a *App) privateCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shares := parseAmount(r.FormValue("shares_out"))
+	switched := false
 	term := strings.TrimSpace(r.FormValue("search_term"))
 	err := a.st().Update(func(db *DB) error {
 		if sym == "" { // new company
@@ -525,20 +534,28 @@ func (a *App) privateCompany(w http.ResponseWriter, r *http.Request) {
 			inst.Name = name
 		}
 		inst.SharesOut, inst.SearchTerm = shares, term
-		if ccy != inst.Currency { // prices already recorded are in the old currency, so only an unused company can change
+		if ccy != inst.Currency {
 			used := len(db.Checkpoints[sym]) > 0
 			for _, t := range db.Txns {
 				used = used || t.Symbol == sym
 			}
-			if used {
-				return fmt.Errorf("the currency can't be changed once you have transactions or checkpoints, because their prices are in %s", inst.Currency)
+			// Recorded prices are plain numbers in the company's currency, so changing it re-labels them. Only do that
+			// when the user confirms the numbers really were in the new currency (e.g. entered as USD but saved as AUD).
+			if used && r.FormValue("reinterpret") != "1" {
+				return fmt.Errorf("your existing prices and checkpoints for %s are recorded in %s. Tick the box to confirm they are really in %s, then save again", inst.Name, inst.Currency, ccy)
 			}
 			inst.Currency = ccy
+			switched = true
 		}
 		return nil
 	})
 	if err != nil {
 		redirect(w, r, "/private", "", err.Error())
+		return
+	}
+	if switched {
+		go a.RefreshFX(true) // make sure rates for the new currency are saved
+		redirect(w, r, "/private", "Saved "+name+". Now valued in AUD using the latest "+ccy+" rate.", "")
 		return
 	}
 	redirect(w, r, "/private", "Saved "+name, "")

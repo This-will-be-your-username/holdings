@@ -216,3 +216,85 @@ func TestStalePrivateValuationWarns(t *testing.T) {
 		t.Fatalf("expected a stale-valuation warning, got %v", res.Warnings)
 	}
 }
+
+func TestPrivateCompanyInForeignCurrency(t *testing.T) {
+	a, err := newApp(t.TempDir() + "/d.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := a.routes()
+	post := func(path string, v url.Values) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", path, strings.NewReader(v.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, req)
+		return r
+	}
+	// a transaction for a new private company can name its currency
+	if r := post("/transactions", url.Values{"market": {"PRIVATE"}, "symbol": {"ACMEUS"}, "name": {"Acme Inc"}, "currency": {"usd"},
+		"type": {"buy"}, "date": {"2025-01-10"}, "units": {"1000"}, "price": {"2"}}); r.Code != 303 || strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("add txn: %d %s", r.Code, r.Header().Get("Location"))
+	}
+	var inst Instrument
+	a.st().View(func(db *DB) { inst = *db.Instruments["ACMEUS"] })
+	if inst.Currency != "USD" || !inst.Private {
+		t.Fatalf("instrument %+v", inst)
+	}
+	if r := post("/transactions", url.Values{"market": {"PRIVATE"}, "symbol": {"BAD"}, "currency": {"dollars"}, "type": {"buy"}, "date": {"2025-01-10"}, "units": {"1"}, "price": {"1"}}); r.Code == 303 {
+		t.Fatal("a bad currency code should be refused")
+	}
+	// value it in USD; reports convert at the latest rate
+	a.st().Update(func(db *DB) error {
+		db.FX["USD"] = map[string]float64{"2025-01-10": 1.6, "2026-11-13": 1.5}
+		_, e := AddCheckpoint(db, "ACMEUS", Checkpoint{Date: "2026-06-01", Price: 4})
+		return e
+	})
+	r := httptest.NewRecorder()
+	h.ServeHTTP(r, httptest.NewRequest("GET", "/private", nil))
+	body := r.Body.String()
+	for _, want := range []string{"6,000.00", "(USD 4,000.00)", "1 USD = A$1.5000"} { // 1000 x 4 USD x 1.5
+		if !strings.Contains(body, want) {
+			t.Errorf("private page missing %q", want)
+		}
+	}
+	// the cost uses the rate on the day it was bought: 1000 x 2 x 1.6
+	a.st().View(func(db *DB) {
+		res := Compute(db, time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC))
+		if res.Holdings[0].CostAUD != 3200 || res.Holdings[0].ValueAUD != 6000 {
+			t.Errorf("cost %v value %v", res.Holdings[0].CostAUD, res.Holdings[0].ValueAUD)
+		}
+	})
+}
+
+func TestChangingPrivateCurrencyNeedsConfirmation(t *testing.T) {
+	oldFX := fxBase
+	fxBase = "http://127.0.0.1:1" // the confirmed change refreshes rates in the background; keep it off the network
+	defer func() { fxBase = oldFX }()
+	a, _ := newApp(t.TempDir() + "/d.json")
+	a.st().Update(func(db *DB) error { *db = *privDB(); return nil })
+	h := a.routes()
+	post := func(v url.Values) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/private/company", strings.NewReader(v.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, req)
+		return r
+	}
+	v := url.Values{"symbol": {"PVT-ACME"}, "name": {"Acme Robotics Pty Ltd"}, "currency": {"USD"}}
+	if r := post(v); !strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("expected a confirmation error, got %s", r.Header().Get("Location"))
+	}
+	var cur string
+	a.st().View(func(db *DB) { cur = db.Instruments["PVT-ACME"].Currency })
+	if cur != "AUD" {
+		t.Fatalf("currency changed without confirmation: %s", cur)
+	}
+	v.Set("reinterpret", "1")
+	if r := post(v); strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("confirmed change failed: %s", r.Header().Get("Location"))
+	}
+	a.st().View(func(db *DB) { cur = db.Instruments["PVT-ACME"].Currency })
+	if cur != "USD" {
+		t.Fatalf("currency %s", cur)
+	}
+}

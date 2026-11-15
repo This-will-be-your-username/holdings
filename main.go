@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,7 +52,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /{$}", a.dashboard)
 	mux.HandleFunc("GET /transactions", func(w http.ResponseWriter, r *http.Request) {
 		form := map[string]string{"date": time.Now().Format(dateFmt), "type": "buy", "market": MarketASX}
-		for _, k := range []string{"symbol", "market", "type", "date", "amount", "franked", "franking"} {
+		for _, k := range []string{"symbol", "market", "type", "date", "amount", "franked", "franking", "currency"} {
 			if v := r.URL.Query().Get(k); v != "" {
 				form[k] = v
 			}
@@ -199,7 +200,7 @@ func (a *App) txnPage(w http.ResponseWriter, r *http.Request, form map[string]st
 func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	form := map[string]string{}
-	for _, k := range []string{"market", "symbol", "name", "type", "date", "units", "price", "fees", "amount", "fx", "notes",
+	for _, k := range []string{"market", "symbol", "name", "currency", "type", "date", "units", "price", "fees", "amount", "fx", "notes",
 		"franked", "franking", "foreign_tax", "cg_disc", "cg_other", "tax_deferred", "tax_year"} {
 		form[k] = strings.TrimSpace(r.FormValue(k))
 	}
@@ -237,6 +238,13 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 		if inst, err = resolveInstrument(sym, market, form["name"]); err != nil {
 			fail(err.Error())
 			return
+		}
+		if c := strings.ToUpper(form["currency"]); c != "" && (market == MarketPrivate || market == MarketManaged) {
+			if !regexp.MustCompile(`^[A-Z]{3}$`).MatchString(c) {
+				fail("currency should be a three-letter code such as AUD or USD")
+				return
+			}
+			inst.Currency = c
 		}
 	}
 	a.st().Update(func(db *DB) error {

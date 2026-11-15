@@ -11,7 +11,8 @@
   <div class="fund-status">
     <div><span class="lbl">Your holding</span><br><b>{{if .Units}}{{num4 .Units}} shares{{else}}none recorded{{end}}</b></div>
     <div><span class="lbl">Latest checkpoint</span><br>{{if .PriceDate}}{{if .PriceAUD}}<b>A${{num4 .PriceAUD}}</b> <span class="muted s">({{.Currency}} {{num4 .Price}})</span>{{else}}<b>{{.Currency}} {{num4 .Price}}</b>{{end}} <span class="muted s">per share, {{.PriceDate}}</span>{{else}}<span class="muted">none yet</span>{{end}}</div>
-    {{if .Units}}<div><span class="lbl">Valued at (AUD)</span><br><b>${{money .ValueAUD}}</b> <span class="muted s">cost ${{money .CostAUD}}</span></div>{{end}}
+    {{if .Units}}<div><span class="lbl">Valued at (AUD)</span><br><b>${{money .ValueAUD}}</b>{{if ne .Currency "AUD"}} <span class="muted s">({{.Currency}} {{money .ValueNative}})</span>{{end}} <span class="muted s">cost ${{money .CostAUD}}</span></div>{{end}}
+    {{if .RateNow}}<div><span class="lbl">Exchange rate</span><br><b>1 {{.Currency}} = A${{printf "%.4f" .RateNow}}</b> <span class="muted s">latest, {{.RateDate}}</span></div>{{end}}
   </div>
   {{if .Stale}}<div class="flash warnnote">The latest checkpoint is {{.AgeDays}} days old. This holding is still valued at it, so the figure may be well out of date.</div>{{end}}
 
@@ -74,7 +75,8 @@
     <form method="post" action="/private/company" class="stack">
       <input type="hidden" name="symbol" value="{{.Symbol}}">
       <label>Name <input name="name" value="{{.Name}}"></label>
-      <label>Currency <input name="currency" value="{{.Currency}}" maxlength="3" size="4"></label>
+      <label>Currency <input name="currency" list="ccys" value="{{.Currency}}" maxlength="3" size="4"></label>
+      <label class="xp-opt"><input type="checkbox" name="reinterpret" value="1"> If I change the currency: my existing prices and checkpoints really are in the new currency</label>
       <label>Shares on issue (fully diluted) <input name="shares_out" inputmode="decimal" value="{{if .SharesOut}}{{printf "%.0f" .SharesOut}}{{end}}" placeholder="optional"></label>
       <label>Search for <input name="search_term" value="{{.SearchTerm}}" placeholder="a name used in news coverage, if different"></label>
       <div><button class="btn">Save details</button></div>
@@ -90,7 +92,8 @@
   <div class="card-h"><h2>Add a private company</h2></div>
   <form method="post" action="/private/company" class="stack">
     <label>Company name <input name="name" required placeholder="e.g. Acme Robotics Pty Ltd"></label>
-    <label>Currency <input name="currency" value="AUD" maxlength="3" size="4"></label>
+    <label>Currency <small>(the company reports in; values are tracked in it and shown in AUD at the latest rate)</small> <input name="currency" list="ccys" value="AUD" maxlength="3" size="6"></label>
+    <datalist id="ccys"><option value="AUD"><option value="USD"><option value="EUR"><option value="GBP"><option value="NZD"><option value="CAD"><option value="SGD"><option value="JPY"><option value="HKD"><option value="CHF"></datalist>
     <label>Shares on issue (fully diluted) <input name="shares_out" inputmode="decimal" placeholder="optional — lets you enter a company valuation"></label>
     <label>Search for <input name="search_term" placeholder="optional — name used in news coverage, if different"></label>
     <div><button class="btn primary">Add company</button></div>

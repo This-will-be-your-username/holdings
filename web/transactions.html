@@ -51,7 +51,9 @@
         <option value="MANAGED" {{sel (index .Form "market") "MANAGED"}}>Managed fund (e.g. Vanguard unlisted)</option>
       </select></label>
     <label>Symbol <input name="symbol" required placeholder="VAS, AAPL, VAN0002AU…" value="{{index .Form "symbol"}}"></label>
-    <label>Fund name <small>(managed funds)</small> <input name="name" placeholder="Vanguard Australian Shares Index" value="{{index .Form "name"}}"></label>
+    <label>Fund / company name <small>(unlisted funds, private companies)</small> <input name="name" placeholder="Vanguard Australian Shares Index" value="{{index .Form "name"}}"></label>
+    <label>Currency <small>(new private company or unlisted fund; blank = AUD)</small> <input name="currency" list="ccys" maxlength="3" placeholder="AUD" value="{{index .Form "currency"}}"></label>
+    <datalist id="ccys"><option value="AUD"><option value="USD"><option value="EUR"><option value="GBP"><option value="NZD"><option value="CAD"><option value="SGD"><option value="JPY"><option value="HKD"><option value="CHF"></datalist>
     <label>Type
       <select name="type">
         <option value="buy" {{sel (index .Form "type") "buy"}}>Buy</option>
