@@ -28,6 +28,7 @@ type Field string
 const (
 	FDate        Field = "date"
 	FSettle      Field = "settle"
+	FAcqDate     Field = "acq_date" // original acquisition / vest date, for transfers that carry the cost basis over
 	FType        Field = "type"
 	FSymbol      Field = "symbol"
 	FName        Field = "name"
@@ -53,11 +54,11 @@ const (
 	FTaxYear     Field = "tax_year"
 )
 
-var fieldOrder = []Field{FDate, FSettle, FType, FSymbol, FName, FDesc, FUnits, FPrice, FAmount, FTotal, FFees, FGST,
+var fieldOrder = []Field{FDate, FAcqDate, FSettle, FType, FSymbol, FName, FDesc, FUnits, FPrice, FAmount, FTotal, FFees, FGST,
 	FCurrency, FFX, FMarket, FRef, FNotes, FFranked, FUnfranked, FFranking, FForeignTax, FCGDisc, FCGOther, FTaxDeferred, FTaxYear}
 
 var fieldLabel = map[Field]string{
-	FDate: "Trade date", FSettle: "Settlement date (fallback)", FType: "Action (buy / sell / distribution)",
+	FDate: "Trade / transfer date", FAcqDate: "Original acquisition / vest date (optional)", FSettle: "Settlement date (fallback)", FType: "Action (buy / sell / distribution)",
 	FSymbol: "Ticker / code", FName: "Name", FDesc: "Description (read action, units, price from text)",
 	FUnits: "Units / quantity", FPrice: "Unit price", FAmount: "Gross value / gross distribution",
 	FTotal: "Total / net amount", FFees: "Brokerage / fees", FGST: "GST (if separate)", FCurrency: "Currency",
@@ -86,6 +87,7 @@ var headerPats = []hp{
 	hpat(FDate, 90, `date|date time|datetime|dt|time`),
 	hpat(FDate, 72, `(?:payment|pay|paid|distribution|dividend|payout|entitlement) date`),
 	hpat(FDate, 30, `(?:ex|record|ex dividend) date`),
+	hpat(FAcqDate, 97, `(?:original |orig )?(?:acquisition|acquired|purchase|purchased|vest|vesting|vested|award|awarded|grant|release|released|issue) ?date|date (?:acquired|purchased|vested|awarded|of acquisition|of purchase|of vest(?:ing)?)|acquired on|acquired|(?:original|orig) (?:date|trade date)|lot date|lot acquired( date)?|holding period start|cost base date`),
 	hpat(FSettle, 100, `settle(?:ment)? ?date|sett(?:le)? dt|date settled|value date|settled`),
 
 	hpat(FSymbol, 100, `(?:asx |stock |security |share |instrument |investment |product |fund |sec |ticker |market )?(?:code|symbol|ticker)(?: symbol)?`),
@@ -100,8 +102,10 @@ var headerPats = []hp{
 
 	hpat(FUnits, 100, `units|quantity|qty|no of units|number of units|no of shares|number of shares|shares|volume|filled quantity|filled qty|executed quantity|exec qty|securities|units quantity|unit quantity|trade quantity|share quantity`),
 	hpat(FPrice, 100, `unit price|price|avg price|average price|trade price|execution price|exec price|price per unit|price per share|share price|fill price|avg trade price|average trade price|tradeprice|unit cost|cost per share|cost per unit`),
+	hpat(FPrice, 98, `(?:cost basis|cost base|basis|adjusted cost basis|adjusted cost base|original cost|acquisition cost|acquisition price|vest price|fmv|fair market value|vest fmv) (?:per share|per unit|each|per security|ps)|(?:unit|average|avg|per share|per unit) (?:cost basis|cost base)|avg cost basis|average cost basis|vest price|acquisition price|acquired price`),
 	hpat(FPrice, 55, `average cost|rate|net price`),
 
+	hpat(FAmount, 96, `cost basis|cost base|total cost basis|total cost base|basis|adjusted cost basis|adjusted cost base|original cost|original cost basis|acquisition cost|total acquisition cost|cost of acquisition|vest value|value at vest|fair market value at vest|total fmv|fmv`),
 	hpat(FAmount, 95, `trade value|gross amount|gross value|gross consideration|consideration|gross proceeds|trade amount|value of trade|transaction value|gross payment|gross dividend|gross distribution|total dividend|dividend amount|distribution amount`),
 	hpat(FTotal, 90, `total|total value|total amount|total cost|total proceeds|total consideration|net amount|net value|net proceeds|net payment|net dividend|net distribution|settlement amount|cash amount|net cash|net total|amount|value|payment|credit|debit|credit debit|debit credit|amount paid|amount received`),
 
@@ -340,13 +344,16 @@ func detectDateOrder(vals []string) (order, note string) {
 }
 
 var (
-	reTaxLine = regexp.MustCompile(`(?i)^(non[- ]resident |us |foreign )?(withh?olding )?tax( withh?eld| paid| deducted)?\b|^nra\b|^withh?olding\b`)
-	reAward   = regexp.MustCompile(`(?i)\brsus?\b|\brsas?\b|\breleas(e|ed|es)\b|\bvest(ed|s|ing)?\b|\bawards?(ed)?\b|stock award|share award|equity award|performance rights? (vest|releas)`)
-	reDRP     = regexp.MustCompile(`(?i)reinvest|\bdrp\b|\bdrip\b|dividend plan|distribution plan`)
-	reDiv     = regexp.MustCompile(`(?i)dividend|distribution|\bdivs?\b|payout|franked|\bcoupon\b|^income\b`)
-	reSell    = regexp.MustCompile(`(?i)^(s|sl|sell|sold|sale|sales|redemption|redeem|redeemed|disposal|disposed|short sell|units withdrawn|switch out|sell to close)\b`)
-	reBuy     = regexp.MustCompile(`(?i)^(b|bu|buy|bought|purchase|purchased|acquisition|application|applic|subscription|investment|contribution|switch in|buy to open|units issued|new units|trade in)\b`)
-	reIgnore  = regexp.MustCompile(`(?i)deposit|withdraw|transfer|interest|\bfees?\b|charge|account|\btax\b|\bgst\b|adjust|opening|closing|balance|journal|\bfx\b|currency|conversion|split|consolidat|merger|spin|rights|bonus|corporate action|capital return|buy ?back|\bcash\b|statement|settlement`)
+	reTaxLine      = regexp.MustCompile(`(?i)^(non[- ]resident |us |foreign )?(withh?olding )?tax( withh?eld| paid| deducted)?\b|^nra\b|^withh?olding\b`)
+	reTransferWord = regexp.MustCompile(`(?i)\btransfer`)
+	reTransferOut  = regexp.MustCompile(`(?i)transfer(?:red|s)?[ _-]*out|\bout\b|withdraw|disposal`)
+	reTransferIn   = regexp.MustCompile(`(?i)transfer(?:red|s)?[ _-]*in\b|\bin[ -]?specie\b|incoming (?:transfer|holding)|\btransfer(?:red)? (?:of )?(?:shares|units|holdings?) in\b|\bacat in\b|\b(?:shares?|units?) received\b|\b(?:chess|hin|sponsor) transfer in\b`)
+	reAward        = regexp.MustCompile(`(?i)\brsus?\b|\brsas?\b|\breleas(e|ed|es)\b|\bvest(ed|s|ing)?\b|\bawards?(ed)?\b|stock award|share award|equity award|performance rights? (vest|releas)`)
+	reDRP          = regexp.MustCompile(`(?i)reinvest|\bdrp\b|\bdrip\b|dividend plan|distribution plan`)
+	reDiv          = regexp.MustCompile(`(?i)dividend|distribution|\bdivs?\b|payout|franked|\bcoupon\b|^income\b`)
+	reSell         = regexp.MustCompile(`(?i)^(s|sl|sell|sold|sale|sales|redemption|redeem|redeemed|disposal|disposed|short sell|units withdrawn|switch out|sell to close)\b`)
+	reBuy          = regexp.MustCompile(`(?i)^(b|bu|buy|bought|purchase|purchased|acquisition|application|applic|subscription|investment|contribution|switch in|buy to open|units issued|new units|trade in)\b`)
+	reIgnore       = regexp.MustCompile(`(?i)deposit|withdraw|transfer|interest|\bfees?\b|charge|account|\btax\b|\bgst\b|adjust|opening|closing|balance|journal|\bfx\b|currency|conversion|split|consolidat|merger|spin|rights|bonus|corporate action|capital return|buy ?back|\bcash\b|statement|settlement`)
 )
 
 // classifyType maps the wording institutions use onto buy / sell / dividend / drp.
@@ -359,6 +366,11 @@ func classifyType(s string) (typ string, ignore, ok bool) {
 	switch {
 	case reTaxLine.MatchString(s):
 		return "", true, true
+	case reTransferIn.MatchString(s): // shares moved in from another broker keep their cost base; RSU wording makes it an award
+		if reAward.MatchString(s) {
+			return "award", false, true
+		}
+		return "buy", false, true
 	case reAward.MatchString(s):
 		return "award", false, true
 	case reDRP.MatchString(s):
@@ -724,7 +736,7 @@ func Analyze(data []byte, o ImportOpts) (*Analysis, error) {
 		for f, w := range hs {
 			var sc float64
 			switch f {
-			case FDate, FSettle:
+			case FDate, FSettle, FAcqDate:
 				sc = float64(w) * (0.25 + 0.75*st.date)
 				if st.n == 0 {
 					sc = float64(w) * 0.5
@@ -884,6 +896,9 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 
 	dateStr := an.cell(row, FDate)
 	if dateStr == "" {
+		dateStr = an.cell(row, FAcqDate)
+	}
+	if dateStr == "" {
 		dateStr = an.cell(row, FSettle)
 	}
 	if reTotalRow.MatchString(first) && (dateStr == "" || !reNumDate.MatchString(dateStr)) {
@@ -908,6 +923,13 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 		emb, hasEmb = parseDescription(typeText)
 	}
 	typ, ignore, known := classifyType(typeText)
+	isTransfer := reTransferIn.MatchString(typeText) || reTransferIn.MatchString(desc)
+	if ignore && reTransferWord.MatchString(typeText) && !reTransferOut.MatchString(typeText) {
+		// a bare "Transfer" row that moves units of a named holding is shares arriving; cash transfers have no units
+		if u, ok := an.num(row, FUnits); ok && u > 0 && (an.cell(row, FSymbol) != "" || an.cell(row, FName) != "") {
+			typ, ignore, known, isTransfer = "buy", false, true, true
+		}
+	}
 	if ignore {
 		return skip(fmt.Sprintf("not an investment transaction (%q)", typeText))
 	}
@@ -930,6 +952,9 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 	price = abs(price)
 	gross, hasGross := an.num(row, FAmount)
 	total, hasTotal := an.num(row, FTotal)
+	if isTransfer {
+		hasTotal = false // a transfer's "value" is the market value that day, which is not what the shares cost
+	}
 	franked, hasFranked := an.num(row, FFranked)
 	unfranked, hasUnfranked := an.num(row, FUnfranked)
 	credit, _ := an.num(row, FFranking)
@@ -1033,11 +1058,35 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 		}
 	case hasGST:
 		fees = abs(gstV)
-	case hasGross && hasTotal && (typ == "buy" || typ == "award" || typ == "sell"):
+	case hasGross && hasTotal && !isTransfer && (typ == "buy" || typ == "award" || typ == "sell"):
 		fees = math.Abs(abs(total) - abs(gross))
 	}
 
 	t := Txn{Date: date, Symbol: sym, Type: typ, Fees: math.Round(fees*100) / 100, Ref: an.cell(row, FRef), Notes: an.cell(row, FNotes)}
+	if isTransfer && (typ == "buy" || typ == "award") {
+		xferDate := t.Date
+		acq, hasAcq := parseDateFlex(an.cell(row, FAcqDate), an.DateOrder)
+		if hasAcq && acq <= xferDate {
+			t.Date = acq // the cost basis and the 12-month CGT clock follow the original acquisition, not the move
+		} else {
+			hasAcq = false
+		}
+		switch {
+		case hasAcq && acq != xferDate:
+			if t.Notes == "" {
+				t.Notes = "Transferred in on " + xferDate + "; original acquisition date and cost basis carried over"
+			}
+		case hasAcq:
+			if t.Notes == "" {
+				t.Notes = "Transferred in; original acquisition date and cost basis carried over"
+			}
+		default:
+			if t.Notes == "" {
+				t.Notes = "Transferred in on " + xferDate + "; cost basis carried over"
+			}
+			pr.Warn = append(pr.Warn, "no original acquisition date in the file, so the transfer date is used - the 12-month CGT discount will count from there")
+		}
+	}
 	if typ == "award" && t.Notes == "" {
 		t.Notes = "Shares awarded (RSU release) - cost base is the market value on the vest date"
 	}
@@ -1062,6 +1111,9 @@ func (an *Analysis) interpret(line int, row []string) ParsedRow {
 			case hasTotal && total != 0:
 				price = (abs(total) + fees) / units
 			default:
+				if isTransfer {
+					return fail("no cost basis for the transferred shares - map a cost basis column, or enter the cost on the Transactions page")
+				}
 				return fail("no price (and no value to work it out from)")
 			}
 			pr.Warn = append(pr.Warn, "unit price worked out from the value")

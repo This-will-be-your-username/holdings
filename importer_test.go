@@ -90,14 +90,14 @@ func TestClassifyType(t *testing.T) {
 		"Sell": "sell", "Sold": "sell", "S": "sell", "Redemption": "sell", "Limit Sell": "sell", "Disposal": "sell",
 		"Dividend": "dividend", "Distribution": "dividend", "Franked Dividend": "dividend", "DIV": "dividend",
 		"Distribution Reinvestment": "drp", "DRP": "drp", "Dividend Reinvested": "drp",
-		"B 100 VAS @ 95.10": "buy", "S 10 VAS @ 105": "sell",
+		"B 100 VAS @ 95.10": "buy", "S 10 VAS @ 105": "sell", "Transfer In": "buy", "In specie transfer": "buy",
 	}
 	for in, want := range cases {
 		if got, ign, ok := classifyType(in); !ok || ign || got != want {
 			t.Errorf("classifyType(%q) = %q ign=%v ok=%v want %q", in, got, ign, ok, want)
 		}
 	}
-	for _, in := range []string{"Deposit", "Withdrawal", "Interest", "Brokerage Fee", "Transfer In", "Withholding Tax", "Stock Split", "Opening Balance"} {
+	for _, in := range []string{"Deposit", "Withdrawal", "Interest", "Brokerage Fee", "Transfer Out", "Withholding Tax", "Stock Split", "Opening Balance"} {
 		if _, ign, ok := classifyType(in); !ok || !ign {
 			t.Errorf("classifyType(%q) should be an ignored row", in)
 		}
@@ -504,5 +504,46 @@ func TestAwardCountsLikeAPurchaseAtVestValue(t *testing.T) {
 	// the parcel is dated the vest day, so after 12 months it qualifies for the CGT discount
 	if err := validateTxn(&db.Txns[0]); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestImportTransferInKeepsCostBasisAndAcquisitionDate(t *testing.T) {
+	an := analyze(t, `Transfer Date,Date Acquired,Action,Symbol,Quantity,Cost Basis,Market Value
+20/06/2025,15/03/2019,Transfer In,ACME,120,"$1,800.00","$9,600.00"
+20/06/2025,10/11/2021,Transfer In - RSU,ACME,50,"$1,000.00","$4,000.00"
+20/06/2025,,Transfer Out,OLD,10,"$100.00","$200.00"
+`)
+	var ts []Txn
+	for _, r := range an.Rows {
+		if r.Status == "ok" {
+			ts = append(ts, r.Txn)
+		}
+	}
+	if len(ts) != 2 {
+		t.Fatalf("expected 2 rows (transfer out skipped), got %d: %+v", len(ts), an.Rows)
+	}
+	a, b := ts[0], ts[1]
+	if a.Type != "buy" || a.Date != "2019-03-15" || a.Units != 120 || a.Price != 15 || a.Fees != 0 {
+		t.Fatalf("first: %+v", a) // 1800 / 120 = 15 per share, dated the original acquisition, not the market value
+	}
+	if !strings.Contains(a.Notes, "2025-06-20") {
+		t.Fatalf("note should record the transfer date: %q", a.Notes)
+	}
+	if b.Type != "award" || b.Date != "2021-11-10" || b.Price != 20 {
+		t.Fatalf("RSU transfer: %+v", b)
+	}
+}
+
+func TestImportTransferWithoutAcquisitionDateWarnsAndNeverUsesMarketValue(t *testing.T) {
+	an := analyze(t, `Date,Type,Symbol,Quantity,Cost Basis per Share,Market Value
+20/06/2025,Transfer,ACME,100,12.50,"$9,000.00"
+20/06/2025,Transfer,NOCOST,100,,"$5,000.00"
+`)
+	r0, r1 := an.Rows[0], an.Rows[1]
+	if r0.Status != "ok" || r0.Txn.Price != 12.5 || r0.Txn.Date != "2025-06-20" || len(r0.Warn) == 0 {
+		t.Fatalf("with cost basis: %+v warn=%v", r0.Txn, r0.Warn)
+	}
+	if r1.Status == "ok" {
+		t.Fatalf("a transfer with no cost basis must not be priced at market value: %+v", r1.Txn)
 	}
 }

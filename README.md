@@ -191,3 +191,7 @@ The **Sell everything** tab on the Sell estimator prices selling every holding a
 Private companies can be tracked in any currency: pick it when you add the company, or in the Currency box when you first record shares for it on the Transactions page. Prices, checkpoints and cost are kept in that currency; values are reported in AUD at the latest saved exchange rate (and at the day's rate for each purchase), with the original amount in brackets.
 
 Manual transactions for listed shares and ETFs look up the price for you: leave the price blank and the market close on the transaction date is used (the previous trading day for weekends and holidays). For older holdings, type your own cost basis instead, and tick the box if it is the total for all the units rather than per share.
+
+## Transfers in (shares moved from another broker)
+
+Rows such as *Transfer In* or *In specie* are imported as acquisitions that keep their original cost basis, never the market value on the day of the move. Map a **cost basis** column (total, or per share) and, if the file has one, an **original acquisition / vest date** column: the transaction is then dated the original acquisition so the 12-month CGT discount counts from it, and the transfer date is kept in the notes. Without an acquisition date the transfer date is used and the review screen warns you. A transfer row with no cost basis is rejected rather than priced at market value. Transfers out are ignored. For one-off entries, use the Transactions form with your own cost basis (tick *total* if it is the whole amount).
