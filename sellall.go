@@ -39,6 +39,30 @@ type SellAll struct {
 	OtherIncomeSet      float64
 }
 
+// bracketChoice reads which tax assumption an estimate should use: "mine" (the other income set on the Tax page) or
+// "top" (the top marginal rate whatever your income). With no other income recorded the estimate would be taxed as if the
+// gain were your only income, which is far too low, so the top rate is the default until an income is set.
+func bracketChoice(r *http.Request, otherIncome float64) string {
+	if v := r.FormValue("bracket"); v == "mine" || v == "top" {
+		return v
+	}
+	if otherIncome <= 0 {
+		return "top"
+	}
+	return "mine"
+}
+
+// withBracket returns a view of the data to estimate against; for "top" the other income is set above the top
+// threshold. Nothing is written back.
+func withBracket(db *DB, choice string) *DB {
+	if choice != "top" {
+		return db
+	}
+	s := *db
+	s.Settings.OtherIncome = topBracketIncome
+	return &s
+}
+
 func topMarginalRate(fy string) float64 {
 	return (taxAndMedicare(fy, topBracketIncome+1000) - taxAndMedicare(fy, topBracketIncome)) / 1000
 }

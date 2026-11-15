@@ -62,6 +62,18 @@
 </section>
 {{end}}
 
+{{define "bracketPick"}}
+<label class="inl">Tax rate to assume
+  <select name="bracket">
+    <option value="top" {{sel .Bracket "top"}}>Top bracket ({{printf "%.0f" (mulf .TopRate 100.0)}}% incl. Medicare), whatever my income</option>
+    <option value="mine" {{sel .Bracket "mine"}}>My income (${{money0 .MyIncome}} set on the Tax page)</option>
+  </select></label>
+{{end}}
+
+{{define "bracketWarn"}}
+{{if and (eq .Bracket "mine") (le .MyIncome 0.0)}}<div class="flash warnnote">Your other taxable income is <b>$0</b> on the <a class="link" href="/tax">Tax page</a>, so this treats the sale as your <em>only</em> income: the first $18,200 is tax-free and the rest is taxed at low rates. That makes the tax look much too low. Set your income there, or choose the top bracket.</div>{{end}}
+{{end}}
+
 {{define "estEffect"}}
 <section class="card">
   <div class="card-h"><h2>Effect on your {{.FY}} tax</h2><a class="link" href="/tax?fy={{.FY}}">Full {{.FY}} tax position →</a></div>
@@ -74,7 +86,8 @@
       <tr><td>Estimated net tax on investments <span class="muted s">(after franking offsets)</span></td><td class="r">{{money .Base.NetPayable}}</td><td class="r"><b>{{money .Scen.NetPayable}}</b></td></tr>
     </tbody>
   </table></div>
-  <p class="muted s">Taken over your other taxable income of ${{money0 .Scen.OtherIncome}} (set on the <a class="link" href="/tax">Tax page</a>). If that's $0 the estimate will be low — update it first.</p>
+  {{if ge .Scen.OtherIncome 9999999.0}}<p class="muted s">Taxed as if the gain landed in the <b>top bracket</b> (45% + 2% Medicare), whatever your actual income. Pick "My income" above to use the figure from the <a class="link" href="/tax">Tax page</a> instead.</p>
+  {{else}}<p class="muted s">Taken over your other taxable income of ${{money0 .Scen.OtherIncome}} (set on the <a class="link" href="/tax">Tax page</a>). If that's $0 the estimate will be low — update it first.</p>{{end}}
 </section>
 {{end}}
 
@@ -106,6 +119,7 @@
     <div class="est-actions">
       <button type="button" class="btn" id="add-row">+ Sell another holding</button>
       <label class="inl">Sale date <input type="date" name="date" value="{{.Date}}"></label>
+      {{template "bracketPick" .}}
       <label class="inl">Parcels sold <select name="method">
         {{range .Methods}}<option value="{{.}}" {{sel . $.Method}}>{{index $.Labels .}}</option>{{end}}</select></label>
       <button class="btn primary">Estimate tax</button>
@@ -113,6 +127,7 @@
   </form>
 </section>
 
+{{template "bracketWarn" $}}
 {{with .Est}}
 {{template "estTiles" .}}
 {{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{if .NL}}{{template "estNewLaw" .NL}}{{end}}
@@ -175,11 +190,12 @@
         <label>Price growth after 1 Jul 2027 <small>(% a year)</small><input name="post_growth" inputmode="decimal" value="{{.PostGrowth}}" placeholder="0"></label>
         <label>CPI for indexation <small>(% a year)</small><input name="cpi" inputmode="decimal" value="{{.PostCPI}}" placeholder="2.5"></label>
       </div></details>
-    <div class="est-actions"><button class="btn primary">Plan my withdrawal</button></div>
+    <div class="est-actions">{{template "bracketPick" .}}<button class="btn primary">Plan my withdrawal</button></div>
   </form>
   <p class="muted s">The planner puts <b>balance first</b>: it sells what is overweight against your <a class="link" href="/plan">target allocation</a> so you end up as close to your intended mix as possible. It then nudges each target by how that holding is doing against <em>its own purpose</em> — a long-term holding that is only part-way through its horizon is barely marked down. Within each holding it uses parcels held over 12 months first (50% CGT discount), lowest tax first. Listed securities are sold in whole units, so the total can be a little over.</p>
 </section>
 
+{{template "bracketWarn" $}}
 {{with .Raise}}{{$sel := .Sel}}
 {{range .Notes}}<div class="flash warnnote">{{.}}</div>{{end}}
 <section class="card hint">

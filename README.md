@@ -201,3 +201,5 @@ On the Transactions form, shares transferred in from another broker (or held fro
 If you know a holding's cost basis but not when it was acquired, leave the acquisition date blank and enter the cost basis (tick *total* if it is the whole amount). Tick **I held these over 12 months** only if you are sure; those units are then treated as long-term for the CGT discount (acquired a year and a day before the date you enter). Otherwise the discount counts from the date you enter.
 
 A recorded transaction can be edited with the pencil icon in the History table, for example to replace a looked-up price with your real cost basis (tick *total* if it is the whole amount). The original fingerprint is kept, so re-importing the same broker row is still recognised as a duplicate.
+
+The sell and withdrawal estimators have a **Tax rate to assume** choice: the top bracket (47% including Medicare) regardless of income, or your own other income from the Tax page. With no other income recorded the top bracket is the default, and choosing *My income* while it is $0 shows a warning, because the sale is then taxed as your only income and looks far too low.

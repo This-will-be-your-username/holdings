@@ -92,3 +92,56 @@ func TestSellAllPage(t *testing.T) {
 		}
 	}
 }
+
+func TestEstimatorDefaultsToTopBracketWhenNoIncomeIsSet(t *testing.T) {
+	now := time.Now()
+	db := sellAllDB(now)
+	db.Settings.OtherIncome = 0
+	reqs := []SaleReq{{Symbol: "AAA.AX", All: true}} // a 1000 long-term gain
+	date := now.Format(dateFmt)
+
+	req := httptest.NewRequest("GET", "/estimator", nil)
+	if got := bracketChoice(req, 0); got != "top" {
+		t.Fatalf("with no income recorded the default should be the top bracket, got %q", got)
+	}
+	if got := bracketChoice(req, 90000); got != "mine" {
+		t.Fatalf("with an income recorded the default should be mine, got %q", got)
+	}
+	if got := bracketChoice(httptest.NewRequest("GET", "/estimator?bracket=mine", nil), 0); got != "mine" {
+		t.Fatalf("an explicit choice wins, got %q", got)
+	}
+
+	top, err := EstimateSale(withBracket(db, "top"), reqs, date, "fifo", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mine, _ := EstimateSale(withBracket(db, "mine"), reqs, date, "fifo", now)
+	// 1000 gain, 50% discount, 47% = 235 at the top bracket; with no other income the 500 sits in the tax-free threshold
+	if math.Abs(top.Sel.TaxDelta-235) > 0.01 {
+		t.Fatalf("top bracket tax %v, want 235", top.Sel.TaxDelta)
+	}
+	if mine.Sel.TaxDelta >= top.Sel.TaxDelta/2 {
+		t.Fatalf("income of $0 should give a far lower figure (%v vs %v)", mine.Sel.TaxDelta, top.Sel.TaxDelta)
+	}
+	if db.Settings.OtherIncome != 0 {
+		t.Fatal("stored settings must not change")
+	}
+}
+
+func TestEstimatorPageShowsTheAssumption(t *testing.T) {
+	a, _ := newApp(t.TempDir() + "/d.json")
+	a.st().Update(func(db *DB) error { *db = *sellAllDB(time.Now()); return nil })
+	get := func(u string) string {
+		r := httptest.NewRecorder()
+		a.routes().ServeHTTP(r, httptest.NewRequest("GET", u, nil))
+		return r.Body.String()
+	}
+	body := get("/estimator?run=1&sym=AAA.AX&units=all")
+	if !strings.Contains(body, "top bracket") || strings.Contains(body, "only</em> income") {
+		t.Error("default with no income should use the top bracket without the low-tax warning")
+	}
+	body = get("/estimator?run=1&sym=AAA.AX&units=all&bracket=mine")
+	if !strings.Contains(body, "$0</b> on the") {
+		t.Error("choosing my income with $0 recorded should warn that the tax will look too low")
+	}
+}

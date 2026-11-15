@@ -287,6 +287,7 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	var res *Result
 	var set Settings
 	a.st().View(func(db *DB) { res = Compute(db, time.Now()); set = db.Settings })
+	bracket := bracketChoice(r, set.OtherIncome)
 
 	date := strings.TrimSpace(r.FormValue("date"))
 	if date == "" {
@@ -327,7 +328,8 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{"Holdings": res.Holdings, "Rows": rows, "Date": date, "Method": method,
-		"Today": time.Now().Format(dateFmt), "Methods": methodOrder, "Labels": methodLabels, "Mode": "sell"}
+		"Today": time.Now().Format(dateFmt), "Methods": methodOrder, "Labels": methodLabels, "Mode": "sell",
+		"Bracket": bracket, "MyIncome": set.OtherIncome, "TopRate": topMarginalRate(fyOf(date))}
 	nl, nlForm := newLawFromForm(r)
 	for k, v := range nlForm {
 		data[k] = v
@@ -335,8 +337,9 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("run") != "" {
 		var est *Estimate
 		var err error
-		a.st().View(func(db *DB) {
+		a.st().View(func(db0 *DB) {
 			now := time.Now()
+			db := withBracket(db0, bracket)
 			est, err = EstimateSale(db, reqs, date, method, now)
 			if err == nil {
 				var nerr error

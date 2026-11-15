@@ -544,7 +544,9 @@ type holdOpt struct {
 func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	var res *Result
-	a.st().View(func(db *DB) { res = Compute(db, now) })
+	var myIncome float64
+	a.st().View(func(db *DB) { res = Compute(db, now); myIncome = db.Settings.OtherIncome })
+	bracket := bracketChoice(r, myIncome)
 
 	date := strings.TrimSpace(r.FormValue("date"))
 	if d, err := parseDate(date); err == nil {
@@ -569,6 +571,7 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 		"Mode": "raise", "Holdings": res.Holdings, "HoldOpts": opts, "Date": date, "Strategy": strategy,
 		"Amount": strings.TrimSpace(r.FormValue("amount")), "Brokerage": strings.TrimSpace(r.FormValue("brokerage")),
 		"AfterTax": r.FormValue("after_tax") == "1",
+		"Bracket":  bracket, "MyIncome": myIncome, "TopRate": topMarginalRate(fyOf(date)),
 	}
 	nl, nlForm := newLawFromForm(r)
 	for k, v := range nlForm {
@@ -587,7 +590,8 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 		}
 		var wr *WithdrawResult
 		var err error
-		a.st().View(func(db *DB) {
+		a.st().View(func(db0 *DB) {
+			db := withBracket(db0, bracket)
 			wr, err = WithdrawalPlans(db, o, now)
 			if err == nil {
 				picks := map[string][]Pick{}
