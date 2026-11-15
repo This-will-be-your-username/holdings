@@ -200,7 +200,7 @@ func (a *App) txnPage(w http.ResponseWriter, r *http.Request, form map[string]st
 func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	form := map[string]string{}
-	for _, k := range []string{"market", "symbol", "name", "currency", "type", "date", "units", "price", "total_cost", "fees", "amount", "fx", "notes",
+	for _, k := range []string{"market", "symbol", "name", "currency", "type", "date", "acq_date", "units", "price", "total_cost", "fees", "amount", "fx", "notes",
 		"franked", "franking", "foreign_tax", "cg_disc", "cg_other", "tax_deferred", "tax_year"} {
 		form[k] = strings.TrimSpace(r.FormValue(k))
 	}
@@ -220,6 +220,28 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(err.Error())
 		return
+	}
+	// Shares transferred in (or held from before your records start): the date you have is the move, but the cost basis
+	// and the 12-month CGT clock belong to the original acquisition, so the transaction is dated that.
+	var xferNote string
+	if s := form["acq_date"]; s != "" {
+		if form["type"] != "buy" && form["type"] != "award" {
+			fail("an original acquisition date only applies to a buy or an award")
+			return
+		}
+		ad, aerr := parseDate(s)
+		if aerr != nil {
+			fail("original acquisition date: " + aerr.Error())
+			return
+		}
+		if ad > date {
+			fail("the original acquisition date can't be after the transfer date")
+			return
+		}
+		if ad != date {
+			xferNote = "Transferred in on " + date + "; original acquisition date and cost basis carried over"
+			date = ad
+		}
 	}
 	units, price := pnum(form["units"]), pnum(form["price"])
 	var priceNote string
@@ -258,8 +280,8 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 		Franked: pnum(form["franked"]), Franking: pnum(form["franking"]), ForeignTax: pnum(form["foreign_tax"]),
 		CGDisc: pnum(form["cg_disc"]), CGOther: pnum(form["cg_other"]), TaxDeferred: pnum(form["tax_deferred"]),
 		TaxYear: form["tax_year"]}
-	if priceNote != "" && t.Notes == "" {
-		t.Notes = priceNote
+	if t.Notes == "" {
+		t.Notes = strings.Join(nonEmpty(xferNote, priceNote), "; ")
 	}
 	if err := validateTxn(&t); err != nil {
 		fail(err.Error())
@@ -297,6 +319,16 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 		msg += " at " + commas(t.Price, 4) + " (" + priceNote + ")"
 	}
 	redirect(w, r, "/transactions", msg, "")
+}
+
+func nonEmpty(s ...string) []string {
+	var out []string
+	for _, x := range s {
+		if x != "" {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 func (a *App) deleteTxn(w http.ResponseWriter, r *http.Request) {

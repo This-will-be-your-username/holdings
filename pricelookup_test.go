@@ -102,3 +102,33 @@ func TestPrivateCompanyStillNeedsAPrice(t *testing.T) {
 		t.Fatal("unlisted holdings have no market price to look up")
 	}
 }
+
+func TestManualTransferInKeepsOriginalAcquisitionDate(t *testing.T) {
+	fakeYahooServer(t, fakeChart)
+	a, _ := newApp(t.TempDir() + "/d.json")
+	// transferred in 2025-06-20, originally acquired 2019-03-15, total cost basis 1,800 for 120 units
+	r := postTxn(t, a, url.Values{"market": {"ASX"}, "symbol": {"VAS"}, "type": {"buy"}, "date": {"2025-06-20"}, "acq_date": {"2019-03-15"},
+		"units": {"120"}, "price": {"1800"}, "total_cost": {"1"}})
+	if r.Code != 303 || strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("add: %s", r.Header().Get("Location"))
+	}
+	tx := lastTxn(a)
+	if tx.Date != "2019-03-15" || tx.Price != 15 || !strings.Contains(tx.Notes, "Transferred in on 2025-06-20") || !strings.Contains(tx.Notes, "total cost basis") {
+		t.Fatalf("transfer txn %+v", tx)
+	}
+	// an RSU transferred in, with the price left blank: market value on the vest date is looked up (not the transfer date)
+	postTxn(t, a, url.Values{"market": {"ASX"}, "symbol": {"VAS"}, "type": {"award"}, "date": {"2025-02-01"}, "acq_date": {"2025-01-03"}, "units": {"10"}})
+	if tx := lastTxn(a); tx.Type != "award" || tx.Date != "2025-01-03" || tx.Price != 96.2 {
+		t.Fatalf("award transfer %+v", tx)
+	}
+	// guard rails
+	for name, v := range map[string]url.Values{
+		"after the transfer": {"market": {"ASX"}, "symbol": {"VAS"}, "type": {"buy"}, "date": {"2025-01-01"}, "acq_date": {"2025-02-01"}, "units": {"1"}, "price": {"5"}},
+		"on a sale":          {"market": {"ASX"}, "symbol": {"VAS"}, "type": {"sell"}, "date": {"2025-02-01"}, "acq_date": {"2025-01-01"}, "units": {"1"}, "price": {"5"}},
+		"bad date":           {"market": {"ASX"}, "symbol": {"VAS"}, "type": {"buy"}, "date": {"2025-02-01"}, "acq_date": {"nonsense"}, "units": {"1"}, "price": {"5"}},
+	} {
+		if r := postTxn(t, a, v); r.Code == 303 {
+			t.Errorf("%s: should be refused", name)
+		}
+	}
+}

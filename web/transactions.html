@@ -62,7 +62,8 @@
         <option value="award" {{sel (index .Form "type") "award"}}>Shares awarded (RSU release) - price = market value on vest date</option>
         <option value="drp" {{sel (index .Form "type") "drp"}}>Distribution reinvested (DRP)</option>
       </select></label>
-    <label>Date <input type="date" name="date" required value="{{index .Form "date"}}"></label>
+    <label>Date <small>(trade date, or the date shares were transferred in)</small> <input type="date" name="date" required value="{{index .Form "date"}}"></label>
+    <label>Original acquisition / vest date <small>(optional: for shares transferred in or held before your records; the cost basis and 12-month CGT clock use this date)</small> <input type="date" name="acq_date" value="{{index .Form "acq_date"}}"></label>
     <label>Units <input name="units" inputmode="decimal" placeholder="buy / sell / DRP" value="{{index .Form "units"}}"></label>
     <label>Price or cost basis <small>(fund currency; blank = look up the market close on the date for listed shares)</small> <input name="price" inputmode="decimal" placeholder="auto for ASX / US" value="{{index .Form "price"}}"></label>
     <label class="check wide"><input type="checkbox" name="total_cost" value="1" {{if index .Form "total_cost"}}checked{{end}}><span>The price / cost basis above is the <b>total</b> for all the units, not per share <small>(handy for older holdings where you only know the total cost)</small></span></label>
