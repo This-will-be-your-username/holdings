@@ -200,7 +200,7 @@ func (a *App) txnPage(w http.ResponseWriter, r *http.Request, form map[string]st
 func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	form := map[string]string{}
-	for _, k := range []string{"market", "symbol", "name", "currency", "type", "date", "units", "price", "fees", "amount", "fx", "notes",
+	for _, k := range []string{"market", "symbol", "name", "currency", "type", "date", "units", "price", "total_cost", "fees", "amount", "fx", "notes",
 		"franked", "franking", "foreign_tax", "cg_disc", "cg_other", "tax_deferred", "tax_year"} {
 		form[k] = strings.TrimSpace(r.FormValue(k))
 	}
@@ -221,12 +221,46 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 		fail(err.Error())
 		return
 	}
+	units, price := pnum(form["units"]), pnum(form["price"])
+	var priceNote string
+	if r.FormValue("total_cost") != "" && price > 0 { // the figure typed is the whole cost basis, not per share
+		if units <= 0 {
+			fail("enter the number of units to work out a price from a total cost basis")
+			return
+		}
+		price = round6(price / units)
+		priceNote = fmt.Sprintf("price worked out from a total cost basis of %s", commas(pnum(form["price"]), 2))
+	}
+	if price <= 0 && (market == MarketASX || market == MarketUS) && (form["type"] == "buy" || form["type"] == "sell" || form["type"] == "award") {
+		var saved map[string]float64
+		a.st().View(func(db *DB) {
+			if db.Instruments[sym] != nil {
+				saved = map[string]float64{}
+				for d, v := range db.Prices[sym] {
+					saved[d] = v
+				}
+				for d, v := range db.Manual[sym] {
+					saved[d] = v
+				}
+			}
+		})
+		p, used, lerr := lookupClose(sym, date, saved, time.Now())
+		if lerr != nil {
+			fail("couldn't look up a price for " + short(sym) + " on " + date + " (" + lerr.Error() + "). Enter a price or your cost basis instead.")
+			return
+		}
+		price = p
+		priceNote = "price looked up: market close on " + used
+	}
 	t := Txn{ID: newID(), Date: date, Symbol: sym, Type: form["type"],
-		Units: pnum(form["units"]), Price: pnum(form["price"]), Fees: pnum(form["fees"]),
+		Units: units, Price: price, Fees: pnum(form["fees"]),
 		Amount: pnum(form["amount"]), FX: pnum(form["fx"]), Notes: form["notes"],
 		Franked: pnum(form["franked"]), Franking: pnum(form["franking"]), ForeignTax: pnum(form["foreign_tax"]),
 		CGDisc: pnum(form["cg_disc"]), CGOther: pnum(form["cg_other"]), TaxDeferred: pnum(form["tax_deferred"]),
 		TaxYear: form["tax_year"]}
+	if priceNote != "" && t.Notes == "" {
+		t.Notes = priceNote
+	}
 	if err := validateTxn(&t); err != nil {
 		fail(err.Error())
 		return
@@ -258,7 +292,11 @@ func (a *App) addTxn(w http.ResponseWriter, r *http.Request) {
 	if !have {
 		go a.Refresh()
 	}
-	redirect(w, r, "/transactions", fmt.Sprintf("Added %s %s", t.Type, sym), "")
+	msg := fmt.Sprintf("Added %s %s", t.Type, short(sym))
+	if priceNote != "" {
+		msg += " at " + commas(t.Price, 4) + " (" + priceNote + ")"
+	}
+	redirect(w, r, "/transactions", msg, "")
 }
 
 func (a *App) deleteTxn(w http.ResponseWriter, r *http.Request) {

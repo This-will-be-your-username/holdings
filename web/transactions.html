@@ -64,7 +64,8 @@
       </select></label>
     <label>Date <input type="date" name="date" required value="{{index .Form "date"}}"></label>
     <label>Units <input name="units" inputmode="decimal" placeholder="buy / sell / DRP" value="{{index .Form "units"}}"></label>
-    <label>Price per unit <small>(in fund currency)</small> <input name="price" inputmode="decimal" value="{{index .Form "price"}}"></label>
+    <label>Price or cost basis <small>(fund currency; blank = look up the market close on the date for listed shares)</small> <input name="price" inputmode="decimal" placeholder="auto for ASX / US" value="{{index .Form "price"}}"></label>
+    <label class="check wide"><input type="checkbox" name="total_cost" value="1" {{if index .Form "total_cost"}}checked{{end}}><span>The price / cost basis above is the <b>total</b> for all the units, not per share <small>(handy for older holdings where you only know the total cost)</small></span></label>
     <label>Brokerage <small>(AUD)</small> <input name="fees" inputmode="decimal" placeholder="0" value="{{index .Form "fees"}}"></label>
     <label>Distribution amount <small>(cash / DRP total)</small> <input name="amount" inputmode="decimal" value="{{index .Form "amount"}}"></label>
     <label>FX rate <small>(AUD per 1 USD — blank = auto)</small> <input name="fx" inputmode="decimal" value="{{index .Form "fx"}}"></label>

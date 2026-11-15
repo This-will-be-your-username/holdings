@@ -189,3 +189,5 @@ Import actions such as *Release*, *Vest* or *Award* are recognised as **shares a
 The **Sell everything** tab on the Sell estimator prices selling every holding at once, with the gain taxed at the top marginal rate (47% including Medicare) whatever your own income is. It splits gains into long-term (over 12 months, 50% discount) and short-term, applies losses, and shows the tax owed and the cash you would keep.
 
 Private companies can be tracked in any currency: pick it when you add the company, or in the Currency box when you first record shares for it on the Transactions page. Prices, checkpoints and cost are kept in that currency; values are reported in AUD at the latest saved exchange rate (and at the day's rate for each purchase), with the original amount in brackets.
+
+Manual transactions for listed shares and ETFs look up the price for you: leave the price blank and the market close on the transaction date is used (the previous trading day for weekends and holidays). For older holdings, type your own cost basis instead, and tick the box if it is the total for all the units rather than per share.
