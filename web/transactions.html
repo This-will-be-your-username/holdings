@@ -42,53 +42,96 @@
 
 <section class="card" id="add">
   <div class="card-h"><h2>Add transaction</h2></div>
-  <form method="post" action="/transactions" class="grid">
-    <label>Market
-      <select name="market">
-        <option value="ASX" {{sel (index .Form "market") "ASX"}}>ASX (ETFs, shares)</option>
-        <option value="US" {{sel (index .Form "market") "US"}}>US stock / ETF</option>
-        <option value="PRIVATE" {{sel (index .Form "market") "PRIVATE"}}>Private company (unlisted shares)</option>
-        <option value="MANAGED" {{sel (index .Form "market") "MANAGED"}}>Managed fund (e.g. Vanguard unlisted)</option>
-      </select></label>
-    <label>Symbol <input name="symbol" required placeholder="VAS, AAPL, VAN0002AU…" value="{{index .Form "symbol"}}"></label>
-    <label>Fund / company name <small>(unlisted funds, private companies)</small> <input name="name" placeholder="Vanguard Australian Shares Index" value="{{index .Form "name"}}"></label>
-    <label>Currency <small>(new private company or unlisted fund; blank = AUD)</small> <input name="currency" list="ccys" maxlength="3" placeholder="AUD" value="{{index .Form "currency"}}"></label>
-    <datalist id="ccys"><option value="AUD"><option value="USD"><option value="EUR"><option value="GBP"><option value="NZD"><option value="CAD"><option value="SGD"><option value="JPY"><option value="HKD"><option value="CHF"></datalist>
-    <label>Type
-      <select name="type">
-        <option value="buy" {{sel (index .Form "type") "buy"}}>Buy</option>
-        <option value="sell" {{sel (index .Form "type") "sell"}}>Sell</option>
-        <option value="dividend" {{sel (index .Form "type") "dividend"}}>Distribution (cash)</option>
-        <option value="award" {{sel (index .Form "type") "award"}}>Shares awarded (RSU release) - price = market value on vest date</option>
-        <option value="drp" {{sel (index .Form "type") "drp"}}>Distribution reinvested (DRP)</option>
-      </select></label>
-    <label>Date <small>(trade date, or the date shares were transferred in)</small> <input type="date" name="date" required value="{{index .Form "date"}}"></label>
-    <label class="check wide"><input type="checkbox" name="long_term" value="1" {{if index .Form "long_term"}}checked{{end}}><span>I don't know the acquisition date, but I held these <b>over 12 months</b> before this date <small>(treats them as long-term for the CGT discount; leave unticked if unsure. Ignored if you enter an acquisition date.)</small></span></label>
-    <label>Original acquisition / vest date <small>(optional: for shares transferred in or held before your records; the cost basis and 12-month CGT clock use this date)</small> <input type="date" name="acq_date" value="{{index .Form "acq_date"}}"></label>
-    <label>Units <input name="units" inputmode="decimal" placeholder="buy / sell / DRP" value="{{index .Form "units"}}"></label>
-    <label>Price or cost basis <small>(fund currency; blank = look up the market close on the date for listed shares)</small> <input name="price" inputmode="decimal" placeholder="auto for ASX / US" value="{{index .Form "price"}}"></label>
-    <label class="check wide"><input type="checkbox" name="total_cost" value="1" {{if index .Form "total_cost"}}checked{{end}}><span>The price / cost basis above is the <b>total</b> for all the units, not per share <small>(handy for older holdings where you only know the total cost)</small></span></label>
-    <label>Brokerage <small>(AUD)</small> <input name="fees" inputmode="decimal" placeholder="0" value="{{index .Form "fees"}}"></label>
-    <label>Distribution amount <small>(cash / DRP total)</small> <input name="amount" inputmode="decimal" value="{{index .Form "amount"}}"></label>
-    <label>FX rate <small>(AUD per 1 USD — blank = auto)</small> <input name="fx" inputmode="decimal" value="{{index .Form "fx"}}"></label>
-    <details class="wide tax-details" {{if or (index .Form "franking") (index .Form "franked") (index .Form "cg_disc") (index .Form "cg_other") (index .Form "tax_deferred") (index .Form "foreign_tax")}}open{{end}}>
-      <summary>Distribution tax details <small>(optional — from your distribution / annual tax statement)</small></summary>
-      <div class="grid inner">
-        <label>Franked amount <small>(AUD, part of the distribution)</small> <input name="franked" inputmode="decimal" value="{{index .Form "franked"}}"></label>
-        <label>Franking credits <small>(AUD)</small> <input name="franking" inputmode="decimal" value="{{index .Form "franking"}}"></label>
-        <label>Foreign tax <small>(fund currency: withheld from a US dividend, or the offset on an AUD fund)</small> <input name="foreign_tax" inputmode="decimal" value="{{index .Form "foreign_tax"}}"></label>
-        <label>Tax year <small>(blank = by date; set if a June-quarter payment belongs to the earlier year)</small> <input name="tax_year" placeholder="2025-26" value="{{index .Form "tax_year"}}"></label>
-        <label>Capital gain, discountable <small>(AUD, gross, part of the distribution)</small> <input name="cg_disc" inputmode="decimal" value="{{index .Form "cg_disc"}}"></label>
-        <label>Capital gain, other <small>(AUD, gross)</small> <input name="cg_other" inputmode="decimal" value="{{index .Form "cg_other"}}"></label>
-        <label>Tax-deferred / return of capital <small>(AUD — reduces your cost base)</small> <input name="tax_deferred" inputmode="decimal" value="{{index .Form "tax_deferred"}}"></label>
-      </div>
-      <p class="muted s">The distribution amount above is the <b>gross</b> amount. Anything not broken out is treated as unfranked income. Franked + capital gain + tax-deferred can't exceed the amount.</p>
-    </details>
-    <label class="wide">Notes <input name="notes" value="{{index .Form "notes"}}"></label>
-    <div class="wide"><button class="btn primary">Add transaction</button></div>
-  </form>
-</section>
+  <form method="post" action="/transactions" class="txn-form" id="txn-form">
+    <div class="txn-grid">
+      <label>Market
+        <select name="market">
+          <option value="ASX" {{sel (index .Form "market") "ASX"}}>ASX shares / ETFs</option>
+          <option value="US" {{sel (index .Form "market") "US"}}>US stocks / ETFs</option>
+          <option value="PRIVATE" {{sel (index .Form "market") "PRIVATE"}}>Private company</option>
+          <option value="MANAGED" {{sel (index .Form "market") "MANAGED"}}>Unlisted fund</option>
+        </select></label>
+      <label>Symbol
+        <input name="symbol" required placeholder="VAS, AAPL, VAN0002AU" value="{{index .Form "symbol"}}"></label>
+      <label>Type
+        <select name="type" id="txn-type">
+          <option value="buy" {{sel (index .Form "type") "buy"}}>Buy</option>
+          <option value="sell" {{sel (index .Form "type") "sell"}}>Sell</option>
+          <option value="award" {{sel (index .Form "type") "award"}}>Shares awarded (RSU)</option>
+          <option value="dividend" {{sel (index .Form "type") "dividend"}}>Distribution (cash)</option>
+          <option value="drp" {{sel (index .Form "type") "drp"}}>Distribution reinvested</option>
+        </select></label>
 
+      <label>Date
+        <input type="date" name="date" required value="{{index .Form "date"}}"></label>
+      <label data-types="buy sell award drp">Units
+        <input name="units" inputmode="decimal" placeholder="0" value="{{index .Form "units"}}"></label>
+      <div class="fld" data-types="buy sell award drp">
+        <label>Price or cost basis
+          <input name="price" inputmode="decimal" placeholder="auto for ASX / US" value="{{index .Form "price"}}"></label>
+        <label class="check mini"><input type="checkbox" name="total_cost" value="1" {{if index .Form "total_cost"}}checked{{end}}><span>Total for all the units, not per unit</span></label>
+        <small class="fhint">Blank = the market close on the date (listed shares).</small>
+      </div>
+      <label data-types="buy sell award drp"><span class="lt">Brokerage <span class="unit">AUD</span></span>
+        <input name="fees" inputmode="decimal" placeholder="0" value="{{index .Form "fees"}}"></label>
+      <label data-types="dividend drp">Distribution amount
+        <input name="amount" inputmode="decimal" placeholder="gross, in the fund's currency" value="{{index .Form "amount"}}"></label>
+    </div>
+
+    <details class="more" {{if or (index .Form "name") (index .Form "currency") (index .Form "fx") (index .Form "acq_date") (index .Form "long_term") (index .Form "notes") (index .Form "franking") (index .Form "franked") (index .Form "cg_disc") (index .Form "cg_other") (index .Form "tax_deferred") (index .Form "foreign_tax") (index .Form "tax_year")}}open{{end}}>
+      <summary>More options <span class="fhint">name, currency, exchange rate, acquisition date, notes, distribution tax details</span></summary>
+      <div class="txn-grid inner">
+        <label><span class="lt">Name <span class="unit">unlisted funds &amp; private companies</span></span>
+          <input name="name" placeholder="Vanguard Australian Shares Index" value="{{index .Form "name"}}"></label>
+        <label><span class="lt">Currency <span class="unit">new unlisted holdings; blank = AUD</span></span>
+          <input name="currency" list="ccys" maxlength="3" placeholder="AUD" value="{{index .Form "currency"}}"></label>
+        <label><span class="lt">FX rate <span class="unit">AUD per 1 unit; blank = automatic</span></span>
+          <input name="fx" inputmode="decimal" placeholder="auto" value="{{index .Form "fx"}}"></label>
+        <label data-types="buy award">Original acquisition / vest date
+          <input type="date" name="acq_date" value="{{index .Form "acq_date"}}">
+          <small class="fhint">For shares transferred in or held before your records: the cost basis and 12-month CGT clock use this date, and Date above is the transfer date.</small></label>
+        <label class="check wide" data-types="buy award"><input type="checkbox" name="long_term" value="1" {{if index .Form "long_term"}}checked{{end}}><span>I don't know the acquisition date, but I held these <b>over 12 months</b> before the date above <small>(treats them as long-term for the CGT discount; ignored if an acquisition date is entered)</small></span></label>
+        <label class="wide">Notes
+          <input name="notes" value="{{index .Form "notes"}}"></label>
+      </div>
+      <div class="tax-details" data-types="dividend drp">
+        <h3>Distribution tax details <span class="fhint">optional, from your distribution or annual tax statement</span></h3>
+        <div class="txn-grid inner">
+          <label><span class="lt">Franked amount <span class="unit">AUD, part of the distribution</span></span>
+            <input name="franked" inputmode="decimal" value="{{index .Form "franked"}}"></label>
+          <label><span class="lt">Franking credits <span class="unit">AUD</span></span>
+            <input name="franking" inputmode="decimal" value="{{index .Form "franking"}}"></label>
+          <label><span class="lt">Foreign tax <span class="unit">fund currency</span></span>
+            <input name="foreign_tax" inputmode="decimal" value="{{index .Form "foreign_tax"}}"></label>
+          <label><span class="lt">Capital gain, discountable <span class="unit">AUD, gross</span></span>
+            <input name="cg_disc" inputmode="decimal" value="{{index .Form "cg_disc"}}"></label>
+          <label><span class="lt">Capital gain, other <span class="unit">AUD, gross</span></span>
+            <input name="cg_other" inputmode="decimal" value="{{index .Form "cg_other"}}"></label>
+          <label><span class="lt">Tax-deferred / return of capital <span class="unit">AUD; reduces your cost base</span></span>
+            <input name="tax_deferred" inputmode="decimal" value="{{index .Form "tax_deferred"}}"></label>
+          <label><span class="lt">Tax year <span class="unit">blank = by date</span></span>
+            <input name="tax_year" placeholder="2025-26" value="{{index .Form "tax_year"}}"></label>
+        </div>
+        <p class="muted s">The distribution amount is the <b>gross</b> amount. Anything not broken out is treated as unfranked income. Franked + capital gain + tax-deferred can't exceed the amount.</p>
+      </div>
+    </details>
+    <datalist id="ccys"><option value="AUD"><option value="USD"><option value="EUR"><option value="GBP"><option value="NZD"><option value="CAD"><option value="SGD"><option value="JPY"><option value="HKD"><option value="CHF"></datalist>
+    <div class="txn-actions"><button class="btn primary">Add transaction</button></div>
+  </form>
+  <script>
+  (function(){
+    var f=document.getElementById('txn-form'), t=document.getElementById('txn-type'); if(!f||!t) return;
+    function apply(){
+      var v=t.value;
+      Array.prototype.forEach.call(f.querySelectorAll('[data-types]'),function(el){
+        var on=el.getAttribute('data-types').split(' ').indexOf(v)>=0;
+        el.hidden=!on;
+      });
+    }
+    t.addEventListener('change',apply); apply();
+  })();
+  </script>
+</section>
 <section class="card" id="history">
   <details class="history">
   <summary><span class="h2">History</span> <span class="muted s">{{len .Rows}} transaction{{if ne (len .Rows) 1}}s{{end}} - duplicates already removed. Click to show.</span></summary>
