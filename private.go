@@ -322,7 +322,7 @@ func resultURL(href string) string {
 
 func httpGetHTML(u string) ([]byte, error) {
 	req, _ := http.NewRequest("GET", u, nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; fundtrack/1.0)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; holdings/1.0)")
 	req.Header.Set("Accept", "text/html")
 	resp, err := httpc.Do(req)
 	if err != nil {

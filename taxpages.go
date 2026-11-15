@@ -74,7 +74,7 @@ func (a *App) taxExport(name string, write func(io.Writer, *TaxResult, string) e
 			label += "-" + fy
 		}
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="fundtrack-%s.csv"`, label))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="holdings-%s.csv"`, label))
 		w.Write([]byte("\xef\xbb\xbf"))
 		_ = write(w, tr, fy)
 	}

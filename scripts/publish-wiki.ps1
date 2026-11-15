@@ -35,7 +35,7 @@ try {
     git diff --cached --quiet
     if ($LASTEXITCODE -eq 0) { Write-Host 'Wiki is already up to date.' }
     else {
-        Run 'commit' { git -c user.name="FundTrack Dev" -c user.email="dev@example.invalid" commit -m "Update wiki from docs/wiki" }
+        Run 'commit' { git -c user.name="Holdings Dev" -c user.email="dev@example.invalid" commit -m "Update wiki from docs/wiki" }
         Run 'push' { git push }
     }
 }

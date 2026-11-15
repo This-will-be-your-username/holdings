@@ -1,4 +1,4 @@
-/* FundTrack chart explorer: pick series, choose a date range, drag to highlight a period.
+/* Holdings chart explorer: pick series, choose a date range, drag to highlight a period.
    Dependency-free SVG. Data: window.__EXPLORER__ (see chartdata.go). */
 (function () {
   'use strict';

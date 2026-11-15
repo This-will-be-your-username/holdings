@@ -109,7 +109,7 @@ func main() {
 		}
 	}()
 
-	log.Printf("fundtrack listening on http://%s (data: %s)", addr, dataFile)
+	log.Printf("holdings listening on http://%s (data: %s)", addr, dataFile)
 	log.Fatal(http.ListenAndServe(addr, a.routes()))
 }
 
@@ -411,7 +411,7 @@ func (a *App) exportCSV(write func(w io.Writer, res *Result) error, name string)
 	return func(w http.ResponseWriter, r *http.Request) {
 		res, _ := a.compute()
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="fundtrack-%s-%s.csv"`, name, time.Now().Format(dateFmt)))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="holdings-%s-%s.csv"`, name, time.Now().Format(dateFmt)))
 		w.Write([]byte("\ufeff"))
 		if err := write(w, res); err != nil {
 			log.Printf("export %s: %v", name, err)

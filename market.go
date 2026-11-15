@@ -24,7 +24,7 @@ var benchmarks = map[string]string{
 
 func httpGet(u string) ([]byte, error) {
 	req, _ := http.NewRequest("GET", u, nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; fundtrack/1.0)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; holdings/1.0)")
 	req.Header.Set("Accept", "application/json")
 	resp, err := httpc.Do(req)
 	if err != nil {

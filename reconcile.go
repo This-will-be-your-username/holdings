@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-// Reconciling FundTrack with a provider's holdings (valuation) export.
+// Reconciling the app's records with a provider's holdings (valuation) export.
 //
-// A transaction export only covers a window of time. Anything bought before it is simply absent, so FundTrack's
+// A transaction export only covers a window of time. Anything bought before it is simply absent, so the app's
 // units - and therefore value, cost base and returns - come out short. The holdings export lists what the account
 // really holds today, so comparing the two shows exactly which holdings are short and by how many units. It never edits
 // data: the cure is importing the missing history.
@@ -27,7 +27,7 @@ type VGHolding struct {
 
 type VGValuation struct {
 	Holdings []VGHolding
-	Cash     float64 // cash held with the provider (not an investment FundTrack tracks)
+	Cash     float64 // cash held with the provider (not an investment the app tracks)
 	Total    float64 // the provider's stated total, if the file has one (0 if not)
 	AsAt     string  // latest price date in the file
 }
@@ -205,23 +205,23 @@ type ReconRow struct {
 	Name, PriceDate  string
 	VGPrice, VGUnits float64
 	VGValue          float64
-	Symbol           string // matched FundTrack holding ("" if none)
+	Symbol           string // matched holding ("" if none)
 	FTUnits          float64
-	FTPrice          float64 // the price FundTrack is using
+	FTPrice          float64 // the price the app is using
 	FTPriceDate      string
-	DiffUnits        float64 // Vanguard minus FundTrack
+	DiffUnits        float64 // Vanguard minus the records
 	DiffValue        float64 // at Vanguard's price
 	Status           string  // ok | missing | extra | unmatched
-	PriceMismatch    bool    // FundTrack's price differs from Vanguard's by more than 1%
+	PriceMismatch    bool    // the app's price differs from Vanguard's by more than 1%
 }
 
 type Reconciliation struct {
 	Rows                  []ReconRow
-	NotInVanguard         []ReconRow // FundTrack holds it, the export doesn't list it
-	VGTotal, FTTotal      float64    // FundTrack total at FundTrack's own prices
+	NotInVanguard         []ReconRow // the records hold it, the export doesn't list it
+	VGTotal, FTTotal      float64    // recorded total at the app's own prices
 	FTAtVGPrices          float64
 	Cash                  float64
-	MissingValue          float64 // value of units missing from FundTrack, at Vanguard's prices
+	MissingValue          float64 // value of units missing from the records, at Vanguard's prices
 	AsAt                  string
 	EarliestTxn           string
 	NMissing, NExtra, NOK int
@@ -231,7 +231,7 @@ type Reconciliation struct {
 
 const unitTol = 0.005
 
-// Reconcile compares the provider's holdings with what FundTrack computes.
+// Reconcile compares the provider's holdings with what the app computes.
 func Reconcile(db *DB, v *VGValuation, now time.Time) *Reconciliation {
 	res := Compute(db, now)
 	held := map[string]*Holding{}

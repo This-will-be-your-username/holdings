@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>FundTrack</title>
+<title>Holdings</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/app.css">
 </head>
@@ -11,7 +11,7 @@
 <header class="top">
   <div class="wrap bar">
     <div class="brandrow">
-      <a class="brand" href="/"><span class="logo">▲</span> FundTrack</a>
+      <a class="brand" href="/"><span class="logo">▲</span> Holdings</a>
       <form method="post" action="/mode" class="modesw" title="Switch between your real data and simulated test data">
         <input type="hidden" name="mode" value="{{if .Test}}real{{else}}test{{end}}">
         <button class="swbtn{{if .Test}} on{{end}}" role="switch" aria-checked="{{if .Test}}true{{else}}false{{end}}"><span class="knob"></span><span class="swlbl">Test data</span></button>

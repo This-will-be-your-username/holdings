@@ -1,4 +1,4 @@
-/* FundTrack charts: dependency-free, responsive SVG charts with touch/mouse tooltips.
+/* Holdings charts: dependency-free, responsive SVG charts with touch/mouse tooltips.
    Config comes from outlook.go / outlookpage.go (ChartCfg). Re-draws at the real
    container width, so text stays legible on phones. */
 (function () {

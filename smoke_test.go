@@ -42,7 +42,7 @@ func TestEveryPageRendersOnTestData(t *testing.T) {
 		{"/export/tax-cgt.csv", "income_year"},
 		{"/export/tax-distributions.csv?fy=2025-26", "income_year"},
 		{"/test/sample.csv", "Contract Note"},
-		{"/static/charts.js", "FundTrack charts"},
+		{"/static/charts.js", "Holdings charts"},
 	}
 	for _, p := range pages {
 		resp, err := http.Get(srv.URL + p.path)
