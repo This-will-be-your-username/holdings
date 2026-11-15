@@ -545,8 +545,14 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	var res *Result
 	var myIncome float64
-	a.st().View(func(db *DB) { res = Compute(db, now); myIncome = db.Settings.OtherIncome })
-	bracket := bracketChoice(r, myIncome)
+	var anyInc, owners bool
+	a.st().View(func(db *DB) {
+		res = Compute(db, now)
+		myIncome = db.Settings.OtherIncome
+		anyInc = db.anyIncome()
+		owners = len(db.Owners) > 0
+	})
+	bracket := bracketChoice(r, anyInc)
 
 	date := strings.TrimSpace(r.FormValue("date"))
 	if d, err := parseDate(date); err == nil {
@@ -571,7 +577,7 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 		"Mode": "raise", "Holdings": res.Holdings, "HoldOpts": opts, "Date": date, "Strategy": strategy,
 		"Amount": strings.TrimSpace(r.FormValue("amount")), "Brokerage": strings.TrimSpace(r.FormValue("brokerage")),
 		"AfterTax": r.FormValue("after_tax") == "1",
-		"Bracket":  bracket, "MyIncome": myIncome, "TopRate": topMarginalRate(fyOf(date)),
+		"Bracket":  bracket, "MyIncome": myIncome, "HasOwners": owners, "TopRate": topMarginalRate(fyOf(date)),
 	}
 	nl, nlForm := newLawFromForm(r)
 	for k, v := range nlForm {
@@ -598,9 +604,7 @@ func (a *App) raisePage(w http.ResponseWriter, r *http.Request) {
 				for _, rq := range wr.Sel.Plan.Reqs {
 					picks[rq.Symbol] = rq.Picks
 				}
-				var nerr error
-				wr.Sel.Est.NL, nerr = CompareNewLaw(db, wr.Sel.Est, picks, "plan", nl, now)
-				if nerr != nil {
+				if nerr := CompareNewLawAll(db, wr.Sel.Est, picks, "plan", nl, now); nerr != nil {
 					data["NLErr"] = nerr.Error()
 				}
 			}

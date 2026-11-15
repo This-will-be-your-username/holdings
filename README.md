@@ -203,3 +203,7 @@ If you know a holding's cost basis but not when it was acquired, leave the acqui
 A recorded transaction can be edited with the pencil icon in the History table, for example to replace a looked-up price with your real cost basis (tick *total* if it is the whole amount). The original fingerprint is kept, so re-importing the same broker row is still recognised as a duplicate.
 
 The sell and withdrawal estimators have a **Tax rate to assume** choice: the top bracket (47% including Medicare) regardless of income, or your own other income from the Tax page. With no other income recorded the top bracket is the default, and choosing *My income* while it is $0 shows a warning, because the sale is then taxed as your only income and looks far too low.
+
+## Owners
+
+On the Tax tab you can add owners (optional) and tag each investment to the person or entity who holds it. Each owner has their own assumptions panel (other income, losses brought forward, parcel method) and their own tax position; an all-owners summary sits above. The sell, withdrawal and sell-everything estimators split a sale by owner, tax each owner's part on their own assumptions and add the results, with a per-owner table. Choosing the top bracket applies it to every owner. Untagged investments belong to the default owner, whose assumptions are the original ones. An investment has one owner; the same ticker held by two people needs two entries.

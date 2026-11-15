@@ -43,22 +43,31 @@ func pickFYs(tr *TaxResult, fy string) []*FYTax {
 	return nil
 }
 
-func (a *App) computeTax() (*Result, *TaxResult, Settings) {
+// computeTax works out the tax position for one owner ("" = the default owner, or everyone when no owners are set up).
+// owner "*" ignores owners and treats everything as one pool (used for distribution listings).
+func (a *App) computeTax(owner string) (*Result, *TaxResult, Settings) {
 	var res *Result
 	var tr *TaxResult
 	var set Settings
 	a.st().View(func(db *DB) {
 		now := time.Now()
-		res = Compute(db, now)
-		tr = ComputeTax(db, res.Rows, now)
-		set = db.Settings
+		v := db
+		if owner != "*" && db.hasOwners() {
+			if db.ownerIndex(owner) < 0 {
+				owner = ""
+			}
+			v = db.ownerView(owner)
+		}
+		res = Compute(v, now)
+		tr = ComputeTax(v, res.Rows, now)
+		set = v.Settings
 	})
 	return res, tr, set
 }
 
 func (a *App) taxExport(name string, write func(io.Writer, *TaxResult, string) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, tr, _ := a.computeTax()
+		_, tr, _ := a.computeTax(r.URL.Query().Get("owner"))
 		fy := r.URL.Query().Get("fy")
 		label := name
 		if fy != "" {
@@ -72,7 +81,15 @@ func (a *App) taxExport(name string, write func(io.Writer, *TaxResult, string) e
 }
 
 func (a *App) taxPage(w http.ResponseWriter, r *http.Request) {
-	_, tr, set := a.computeTax()
+	owner := r.URL.Query().Get("owner")
+	var hasOwners bool
+	a.st().View(func(db *DB) {
+		hasOwners = len(db.Owners) > 0
+		if db.ownerIndex(owner) < 0 {
+			owner = ""
+		}
+	})
+	_, tr, set := a.computeTax(owner)
 	list := make([]*FYTax, len(tr.FYs))
 	for i, y := range tr.FYs { // newest first
 		list[len(list)-1-i] = y
@@ -92,8 +109,19 @@ func (a *App) taxPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	var tabs []ownerTab
+	var sum []ownerSummary
+	var assign []assignRow
+	var curOwner Owner
+	a.st().View(func(db *DB) {
+		tabs, sum, assign = ownerTaxData(db, owner, sel.FY, time.Now())
+		if i := db.ownerIndex(owner); i >= 0 {
+			curOwner = db.Owners[i]
+		}
+	})
 	// Show the sale events largest-gain-first is noisy; keep chronological.
 	a.render(w, r, "tax", map[string]any{
+		"Owner": owner, "OwnerLabel": ownerLabel(owner, hasOwners), "HasOwners": hasOwners, "Tabs": tabs, "Summary": sum, "Assign": assign, "CurOwner": curOwner,
 		"FY": sel, "FYs": list, "Set": set,
 		"FirstRate": scaleFor(sel.FY)[1].rate * 100,
 		"Method":    set.CGTMethod,
@@ -111,18 +139,33 @@ func (a *App) saveSettings(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/tax", "", "income and losses can't be negative")
 		return
 	}
-	a.st().Update(func(db *DB) error {
+	owner := r.FormValue("owner")
+	var saved string
+	err := a.st().Update(func(db *DB) error {
+		if owner != "" { // a named owner's own assumptions
+			i := db.ownerIndex(owner)
+			if i < 0 {
+				return fmt.Errorf("no such owner")
+			}
+			db.Owners[i].OtherIncome, db.Owners[i].OpeningLoss, db.Owners[i].CGTMethod = other, loss, m
+			saved = db.Owners[i].Name
+			return nil
+		}
 		db.Settings = Settings{
 			OtherIncome: other, CGTMethod: m, OpeningLoss: loss,
 			ExcludeFranking: r.FormValue("include_franking") == "",
 		}
 		return nil
 	})
-	back := "/tax"
-	if fy := r.FormValue("fy"); validFY(fy) {
-		back += "?fy=" + fy
+	if err != nil {
+		redirect(w, r, "/tax", "", err.Error())
+		return
 	}
-	redirect(w, r, back, "Tax settings saved", "")
+	msg := "Tax settings saved"
+	if saved != "" {
+		msg = "Tax settings saved for " + saved
+	}
+	redirect(w, r, taxBack(saved, r.FormValue("fy")), msg, "")
 }
 
 type yieldRow struct {
@@ -132,7 +175,7 @@ type yieldRow struct {
 }
 
 func (a *App) distributionsPage(w http.ResponseWriter, r *http.Request) {
-	res, tr, _ := a.computeTax()
+	res, tr, _ := a.computeTax("*")
 	since := time.Now().AddDate(-1, 0, 0).Format(dateFmt)
 	var yields []yieldRow
 	for _, h := range res.Holdings {

@@ -38,6 +38,9 @@ type Instrument struct {
 	Private    bool    `json:"private,omitempty"`
 	SharesOut  float64 `json:"shares_out,omitempty"`  // shares on issue (fully diluted); turns a company valuation into a price per share
 	SearchTerm string  `json:"search_term,omitempty"` // what to search for when looking for a new valuation (defaults to the name)
+
+	// Owner is who holds this investment, for tax (optional; see owners.go). Blank = the default owner.
+	Owner string `json:"owner,omitempty"`
 }
 
 // Txn is a single user transaction. Price/Amount are in the instrument's
@@ -119,8 +122,9 @@ type DB struct {
 	Bench       map[string]map[string]float64 `json:"bench"`    // market benchmarks (indices, FX, VIX): symbol -> date -> close
 	Instruments map[string]*Instrument        `json:"instruments"`
 	Txns        []Txn                         `json:"txns"`
-	Prices      map[string]map[string]float64 `json:"prices"`      // fetched closes: symbol -> date -> price
-	Manual      map[string]map[string]float64 `json:"manual"`      // user-entered prices (override fetched)
+	Prices      map[string]map[string]float64 `json:"prices"` // fetched closes: symbol -> date -> price
+	Manual      map[string]map[string]float64 `json:"manual"` // user-entered prices (override fetched)
+	Owners      []Owner                       `json:"owners,omitempty"`
 	Checkpoints map[string][]Checkpoint       `json:"checkpoints"` // private companies: symbol -> recorded value checkpoints
 	Divs        map[string]map[string]float64 `json:"divs"`        // symbol -> ex-date -> per-unit dividend
 	FX          map[string]map[string]float64 `json:"fx"`          // currency -> date -> AUD per unit
@@ -134,7 +138,10 @@ type DB struct {
 	// Live quotes: kept in memory and saved to a small side file (not in the main data file), because they change every
 	// few seconds during market hours.
 	Quotes map[string]Quote `json:"-"`
-	Live   LiveStatus       `json:"-"`
+
+	isView    bool // set on a per-owner view (see owners.go)
+	viewOwner string
+	Live      LiveStatus `json:"-"`
 }
 
 type Store struct {

@@ -53,7 +53,7 @@
   <div class="scroll"><table>
     <thead><tr><th>Holding</th><th class="r">Units</th><th class="r">Price</th><th class="r">Proceeds (AUD)</th><th class="r">Brokerage</th><th class="r">Left after sale</th></tr></thead>
     <tbody>{{range .Lines}}<tr>
-      <td><b>{{short .Symbol}}</b><div class="muted s">{{.Name}}</div></td>
+      <td><b>{{short .Symbol}}</b>{{if .Owner}} <span class="tag">{{.Owner}}</span>{{end}}<div class="muted s">{{.Name}}</div></td>
       <td class="r">{{units .Units}} <span class="muted s">of {{units .Held}}</span></td>
       <td class="r">{{money (mulf .Price .FX)}}{{if ne .Currency "AUD"}} <span class="muted s">{{orig .Currency .Price}}</span><div class="muted s">@ {{printf "%.4f" .FX}}</div>{{end}}</td>
       <td class="r">{{money .GrossAUD}}</td><td class="r">{{money .Fees}}</td>
@@ -66,12 +66,28 @@
 <label class="inl">Tax rate to assume
   <select name="bracket">
     <option value="top" {{sel .Bracket "top"}}>Top bracket ({{printf "%.0f" (mulf .TopRate 100.0)}}% incl. Medicare), whatever my income</option>
-    <option value="mine" {{sel .Bracket "mine"}}>My income (${{money0 .MyIncome}} set on the Tax page)</option>
+    <option value="mine" {{sel .Bracket "mine"}}>{{if .HasOwners}}Each owner&rsquo;s own income (set on the Tax page){{else}}My income (${{money0 .MyIncome}} set on the Tax page){{end}}</option>
   </select></label>
 {{end}}
 
 {{define "bracketWarn"}}
 {{if and (eq .Bracket "mine") (le .MyIncome 0.0)}}<div class="flash warnnote">Your other taxable income is <b>$0</b> on the <a class="link" href="/tax">Tax page</a>, so this treats the sale as your <em>only</em> income: the first $18,200 is tax-free and the rest is taxed at low rates. That makes the tax look much too low. Set your income there, or choose the top bracket.</div>{{end}}
+{{end}}
+
+{{define "estNLAll"}}{{if .Parts}}{{range .Parts}}{{if .NL}}<h3 class="owner-h">{{.Label}}</h3>{{template "estNewLaw" .NL}}{{end}}{{end}}{{else if .NL}}{{template "estNewLaw" .NL}}{{end}}{{end}}
+
+{{define "estEffectAll"}}
+{{if .Parts}}
+<section class="card">
+  <div class="card-h"><h2>Tax by owner</h2><span class="muted s">each owner is taxed on their own income, losses and parcels</span></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Owner</th><th class="r">Net proceeds</th><th class="r">Net capital gain added</th><th class="r">Estimated tax</th><th class="r">Cash after tax</th><th class="r">Other income assumed</th></tr></thead>
+    <tbody>{{range .Parts}}<tr><td><b>{{.Label}}</b></td><td class="r">{{money .NetProceeds}}</td><td class="r">{{money .Sel.NetCapGainDelta}}</td><td class="r"><b>{{money .Sel.TaxDelta}}</b></td><td class="r">{{money .Sel.AfterTax}}</td><td class="r">{{if ge .Scen.OtherIncome 9999999.0}}top bracket{{else}}${{money0 .Scen.OtherIncome}}{{end}}</td></tr>{{end}}
+    <tr class="sel-row"><td><b>All owners</b></td><td class="r"><b>{{money .NetProceeds}}</b></td><td class="r"><b>{{money .Sel.NetCapGainDelta}}</b></td><td class="r"><b>{{money .Sel.TaxDelta}}</b></td><td class="r"><b>{{money .Sel.AfterTax}}</b></td><td></td></tr></tbody>
+  </table></div>
+</section>
+{{range .Parts}}<h3 class="owner-h">{{.Label}}</h3>{{template "estEffect" .}}{{end}}
+{{else}}{{template "estEffect" .}}{{end}}
 {{end}}
 
 {{define "estEffect"}}
@@ -100,7 +116,7 @@
       <div class="sale-row">
         <label>Holding
           <select name="sym" class="sym">
-            {{range $.Holdings}}<option value="{{.Symbol}}" data-price="{{printf "%.4f" .Price}}" data-held="{{units .Units}}" data-ccy="{{.Currency}}" {{sel .Symbol $row.Symbol}}>{{short .Symbol}} — {{units .Units}} held</option>{{end}}
+            {{range $.Holdings}}<option value="{{.Symbol}}" data-price="{{printf "%.4f" .Price}}" data-held="{{units .Units}}" data-ccy="{{.Currency}}" {{sel .Symbol $row.Symbol}}>{{short .Symbol}} — {{units .Units}} held{{if .Owner}} · {{.Owner}}{{end}}</option>{{end}}
           </select></label>
         <label>Units <small>number or <b>all</b></small><input name="units" value="{{$row.Units}}" placeholder="e.g. 25 or all"></label>
         <label>…or raise <small>(AUD)</small><input name="target" inputmode="decimal" value="{{$row.Target}}" placeholder="$ amount"></label>
@@ -130,7 +146,7 @@
 {{template "bracketWarn" $}}
 {{with .Est}}
 {{template "estTiles" .}}
-{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{if .NL}}{{template "estNewLaw" .NL}}{{end}}
+{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{template "estNLAll" .}}
 {{template "estLines" .}}
 
 <section class="card">
@@ -160,7 +176,7 @@
     </tr>{{end}}</tbody>
   </table></div>
 </section>
-{{template "estEffect" .}}
+{{template "estEffectAll" .}}
 {{end}}
 {{end}}
 
@@ -204,7 +220,7 @@
   {{if $sel.Plan.NoTargets}}<p class="muted s">No target allocation is set, so your current mix is treated as the target. <a class="link" href="/plan">Set your target mix →</a></p>{{end}}
 </section>
 {{template "estTiles" $sel.Est}}
-{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{if $sel.Est.NL}}{{template "estNewLaw" $sel.Est.NL}}{{end}}
+{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{template "estNLAll" $sel.Est}}
 {{template "estLines" $sel.Est}}
 
 <section class="card">
@@ -251,7 +267,7 @@
   </table></div>
   <p class="muted s">Weights are shares of your whole portfolio. A holding's target is nudged by at most 10% of itself by how it's doing against its own purpose, and only in proportion to how much of its intended horizon has passed — so a long-term holding in a quiet patch is not punished.</p>
 </section>
-{{template "estEffect" $sel.Est}}
+{{template "estEffectAll" $sel.Est}}
 {{end}}
 {{end}}
 
@@ -274,6 +290,15 @@
   <div class="card stat"><span class="lbl">Net capital gain</span><span class="big {{cls .Est.Sel.Gain}}">{{signed .Est.Sel.Gain}}</span><span class="sub">before discount and losses</span></div>
 </section>
 
+{{if .ByOwner}}
+<section class="card">
+  <div class="card-h"><h2>By owner</h2><span class="muted s">each owner is taxed separately at the top rate</span></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Owner</th><th class="r">Proceeds</th><th class="r">Taxable gain</th><th class="r">Tax owed</th><th class="r">Pocket</th></tr></thead>
+    <tbody>{{range .ByOwner}}<tr><td><b>{{.Owner}}</b></td><td class="r">{{money .Proceeds}}</td><td class="r">{{money .Taxable}}</td><td class="r">{{money .Tax}}</td><td class="r">{{money .Pocket}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}
 <section class="card">
   <div class="card-h"><h2>How the tax is worked out</h2></div>
   <div class="scroll"><table>
@@ -304,8 +329,8 @@
     </tr>{{end}}</tbody>
   </table></div>
 </section>
-{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{if .Est.NL}}{{template "estNewLaw" .Est.NL}}{{end}}
-{{template "estEffect" .Est}}
+{{if $.NLErr}}<div class="flash warnnote">New-rules comparison unavailable: {{$.NLErr}}</div>{{end}}{{template "estNLAll" .Est}}
+{{template "estEffectAll" .Est}}
 {{end}}
 {{end}}
 

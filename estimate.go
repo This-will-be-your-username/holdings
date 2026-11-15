@@ -23,6 +23,7 @@ type SaleReq struct {
 }
 
 type SaleLine struct {
+	Owner                                                     string
 	Symbol, Name, Currency                                    string
 	Units, Price, FX, Fees, Held, Remaining, GrossAUD, NetAUD float64
 }
@@ -52,6 +53,13 @@ type Estimate struct {
 	Wait                             *WaitResult
 	Future                           bool
 	NL                               *NewLawView // the same sale under the CGT rules from 1 July 2027 (set by the page handler)
+
+	// Owners: Owner names whose assumptions this estimate was taxed under ("" = default owner). When a sale spans
+	// several owners the figures above are the sums, Base/Scen/Wait are unset, and Parts holds each owner's own
+	// estimate (with its own Base/Scen and new-rules comparison).
+	Owner string
+	Parts []*Estimate
+	Label string // display name of Owner
 }
 
 var methodOrder = []string{"fifo", "hifo", "optimal"}
@@ -62,7 +70,9 @@ var methodLabels = map[string]string{
 	"plan":    "Selected parcels",
 }
 
-func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) (*Estimate, error) {
+// estimateCore prices one sale against one set of tax assumptions (a single owner, or everything when there are no
+// owners). EstimateSale, which splits a sale by owner, is the entry point.
+func estimateCore(db *DB, reqs []SaleReq, date, selected string, now time.Time) (*Estimate, error) {
 	if len(reqs) == 0 {
 		return nil, fmt.Errorf("add at least one holding to sell")
 	}
@@ -132,7 +142,7 @@ func EstimateSale(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 		}
 		txns = append(txns, Txn{ID: fmt.Sprintf("est-%d", i), Symbol: rq.Symbol, Type: "sell",
 			Units: units, Price: price, Fees: rq.Fees, FX: rq.FX})
-		lines = append(lines, SaleLine{Symbol: rq.Symbol, Name: h.Name, Currency: h.Currency, Units: units,
+		lines = append(lines, SaleLine{Owner: db.ownerOf(rq.Symbol), Symbol: rq.Symbol, Name: h.Name, Currency: h.Currency, Units: units,
 			Price: price, Fees: rq.Fees, Held: h.Units})
 	}
 	for i := range lines {
@@ -286,8 +296,14 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 	}
 	var res *Result
 	var set Settings
-	a.st().View(func(db *DB) { res = Compute(db, time.Now()); set = db.Settings })
-	bracket := bracketChoice(r, set.OtherIncome)
+	var anyInc, owners bool
+	a.st().View(func(db *DB) {
+		res = Compute(db, time.Now())
+		set = db.Settings
+		anyInc = db.anyIncome()
+		owners = len(db.Owners) > 0
+	})
+	bracket := bracketChoice(r, anyInc)
 
 	date := strings.TrimSpace(r.FormValue("date"))
 	if date == "" {
@@ -329,7 +345,7 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]any{"Holdings": res.Holdings, "Rows": rows, "Date": date, "Method": method,
 		"Today": time.Now().Format(dateFmt), "Methods": methodOrder, "Labels": methodLabels, "Mode": "sell",
-		"Bracket": bracket, "MyIncome": set.OtherIncome, "TopRate": topMarginalRate(fyOf(date))}
+		"Bracket": bracket, "MyIncome": set.OtherIncome, "HasOwners": owners, "TopRate": topMarginalRate(fyOf(date))}
 	nl, nlForm := newLawFromForm(r)
 	for k, v := range nlForm {
 		data[k] = v
@@ -342,9 +358,7 @@ func (a *App) estimatorPage(w http.ResponseWriter, r *http.Request) {
 			db := withBracket(db0, bracket)
 			est, err = EstimateSale(db, reqs, date, method, now)
 			if err == nil {
-				var nerr error
-				est.NL, nerr = CompareNewLaw(db, est, nil, est.Sel.Method, nl, now)
-				if nerr != nil {
+				if nerr := CompareNewLawAll(db, est, nil, est.Sel.Method, nl, now); nerr != nil {
 					data["NLErr"] = nerr.Error()
 				}
 			}

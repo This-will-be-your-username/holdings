@@ -101,13 +101,13 @@ func TestEstimatorDefaultsToTopBracketWhenNoIncomeIsSet(t *testing.T) {
 	date := now.Format(dateFmt)
 
 	req := httptest.NewRequest("GET", "/estimator", nil)
-	if got := bracketChoice(req, 0); got != "top" {
+	if got := bracketChoice(req, false); got != "top" {
 		t.Fatalf("with no income recorded the default should be the top bracket, got %q", got)
 	}
-	if got := bracketChoice(req, 90000); got != "mine" {
+	if got := bracketChoice(req, true); got != "mine" {
 		t.Fatalf("with an income recorded the default should be mine, got %q", got)
 	}
-	if got := bracketChoice(httptest.NewRequest("GET", "/estimator?bracket=mine", nil), 0); got != "mine" {
+	if got := bracketChoice(httptest.NewRequest("GET", "/estimator?bracket=mine", nil), false); got != "mine" {
 		t.Fatalf("an explicit choice wins, got %q", got)
 	}
 

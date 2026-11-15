@@ -128,6 +128,7 @@ type Row struct {
 
 type Holding struct {
 	Private                        bool   // unlisted company, valued from your recorded checkpoints
+	Owner                          string // who holds it, for tax ("" = default owner)
 	Live                           bool   // priced from a live quote (market open, quote under 15 minutes old)
 	PriceAt                        int64  // unix time of the quote that set Price, if it came from a live quote
 	PriceSource                    string // yahoo | asx, for live quotes
@@ -255,7 +256,7 @@ func Compute(db *DB, now time.Time) *Result {
 		}
 		s := st[t.Symbol]
 		if s == nil {
-			s = &posState{h: &Holding{Symbol: t.Symbol, Name: inst.Name, Market: inst.Market, Currency: inst.Currency, Private: inst.Private}}
+			s = &posState{h: &Holding{Symbol: t.Symbol, Name: inst.Name, Market: inst.Market, Currency: inst.Currency, Private: inst.Private, Owner: db.ownerOf(t.Symbol)}}
 			st[t.Symbol] = s
 			order = append(order, t.Symbol)
 		}

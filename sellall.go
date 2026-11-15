@@ -36,20 +36,34 @@ type SellAll struct {
 	Taxable             float64 // extra net capital gain added to the year
 	Tax, Pocket         float64
 	PrivateHeld         []string
+	ByOwner             []SellAllOwner // set when the sale spans several owners: each is taxed in their own bracket
 	OtherIncomeSet      float64
 }
 
 // bracketChoice reads which tax assumption an estimate should use: "mine" (the other income set on the Tax page) or
 // "top" (the top marginal rate whatever your income). With no other income recorded the estimate would be taxed as if the
 // gain were your only income, which is far too low, so the top rate is the default until an income is set.
-func bracketChoice(r *http.Request, otherIncome float64) string {
+func bracketChoice(r *http.Request, anyIncome bool) string {
 	if v := r.FormValue("bracket"); v == "mine" || v == "top" {
 		return v
 	}
-	if otherIncome <= 0 {
+	if !anyIncome {
 		return "top"
 	}
 	return "mine"
+}
+
+// setTopBracket puts every owner's other income above the top threshold, on a copy.
+func setTopBracket(s *DB) {
+	s.Settings.OtherIncome = topBracketIncome
+	if len(s.Owners) > 0 {
+		os := make([]Owner, len(s.Owners))
+		copy(os, s.Owners)
+		for i := range os {
+			os[i].OtherIncome = topBracketIncome
+		}
+		s.Owners = os
+	}
 }
 
 // withBracket returns a view of the data to estimate against; for "top" the other income is set above the top
@@ -59,8 +73,13 @@ func withBracket(db *DB, choice string) *DB {
 		return db
 	}
 	s := *db
-	s.Settings.OtherIncome = topBracketIncome
+	setTopBracket(&s)
 	return &s
+}
+
+type SellAllOwner struct {
+	Owner                          string
+	Proceeds, Tax, Pocket, Taxable float64
 }
 
 func topMarginalRate(fy string) float64 {
@@ -72,7 +91,7 @@ func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump) (*Sell
 		return nil, fmt.Errorf("bad sale date")
 	}
 	s := *db // shallow copy: only the settings change, nothing is written back
-	s.Settings.OtherIncome = topBracketIncome
+	setTopBracket(&s)
 	base := Compute(&s, now)
 	var reqs []SaleReq
 	sa := &SellAll{Date: date, FY: fyOf(date), OtherIncomeSet: topBracketIncome}
@@ -130,19 +149,27 @@ func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump) (*Sell
 			sa.Rows[i].Private = in.Private
 		}
 	}
-	if est.Scen != nil && est.Base != nil {
-		sa.Discount = est.Scen.DiscountApplied - est.Base.DiscountApplied
-		sa.ExistingLossesUsed = est.Base.LossCarriedFwd - est.Scen.LossCarriedFwd // losses already on record that this sale soaks up
-		if sa.ExistingLossesUsed < 0 {
-			sa.ExistingLossesUsed = 0
+	parts := est.Parts
+	if len(parts) == 0 {
+		parts = []*Estimate{est}
+	}
+	for _, p := range parts {
+		if p.Scen != nil && p.Base != nil {
+			sa.Discount += p.Scen.DiscountApplied - p.Base.DiscountApplied
+			if used := p.Base.LossCarriedFwd - p.Scen.LossCarriedFwd; used > 0 { // losses already on record that this sale soaks up
+				sa.ExistingLossesUsed += used
+			}
+		}
+	}
+	if len(est.Parts) > 1 {
+		for _, p := range est.Parts {
+			sa.ByOwner = append(sa.ByOwner, SellAllOwner{Owner: p.Label, Proceeds: p.NetProceeds, Tax: p.Sel.TaxDelta, Pocket: p.Sel.AfterTax, Taxable: p.Sel.NetCapGainDelta})
 		}
 	}
 	sa.Taxable = est.Sel.NetCapGainDelta
 	sa.Tax = est.Sel.TaxDelta
 	sa.Pocket = est.Sel.AfterTax
-	if nlv, nerr := CompareNewLaw(&s, est, nil, est.Sel.Method, nl, now); nerr == nil {
-		est.NL = nlv
-	}
+	_ = CompareNewLawAll(&s, est, nil, est.Sel.Method, nl, now)
 	return sa, nil
 }
 

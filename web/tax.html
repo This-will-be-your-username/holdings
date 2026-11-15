@@ -4,6 +4,7 @@
     <p class="muted">Estimated tax position on your investments for an Australian-resident individual, by income year (1 July – 30 June).</p></div>
   <div class="actions">
     <form method="get" action="/tax" class="inline">
+      {{if .Owner}}<input type="hidden" name="owner" value="{{.Owner}}">{{end}}
       <select name="fy" onchange="this.form.submit()" aria-label="Income year">
         {{range .FYs}}<option value="{{.FY}}" {{if eq .FY $.FY.FY}}selected{{end}}>{{.FY}}{{if .Current}} (current){{end}}</option>{{end}}
       </select>
@@ -11,12 +12,20 @@
   </div>
 </div>
 
+{{if .HasOwners}}
+<nav class="tabs" aria-label="Owner">
+  {{range .Tabs}}<a href="/tax?{{if .Name}}owner={{urlq .Name}}&amp;{{end}}fy={{$.FY.FY}}" class="{{if .On}}on{{end}}">{{.Label}} <span class="muted s">({{.Count}})</span></a>{{end}}
+</nav>
+{{end}}
+
 <div class="flash warnnote">Estimate only — not tax advice. It ignores deductions, tax offsets other than franking and foreign income, the Medicare levy low-income reduction and surcharge, and HELP. Check against your ATO pre-fill and your tax statements, or ask a registered tax agent.</div>
 
 <section class="card">
-  <div class="card-h"><h2>Your assumptions</h2></div>
+  <div class="card-h"><h2>{{if .HasOwners}}{{.OwnerLabel}}&rsquo;s assumptions{{else}}Your assumptions{{end}}</h2>{{if .Owner}}<form method="post" action="/owners/delete" onsubmit="return confirm('Remove {{.Owner}}? Their investments become unassigned.')"><input type="hidden" name="name" value="{{.Owner}}"><button class="x" title="Remove this owner">Remove owner</button></form>{{end}}</div>
+  {{if .HasOwners}}<p class="muted s">Tax for {{if .Owner}}{{.Owner}}&rsquo;s{{else}}unassigned{{end}} investments is worked out on {{if .Owner}}their{{else}}these{{end}} own income and losses, separately from the other owners. A sale that spans owners is taxed in each owner&rsquo;s own bracket.</p>{{end}}
   <form method="post" action="/settings" class="grid">
     <input type="hidden" name="fy" value="{{.FY.FY}}">
+    <input type="hidden" name="owner" value="{{.Owner}}">
     <label>Other taxable income <small>(per year — salary etc., excluding these investments)</small>
       <input name="other_income" inputmode="decimal" value="{{printf "%.0f" .Set.OtherIncome}}"></label>
     <label>Which parcels are sold first?
@@ -27,11 +36,21 @@
       </select></label>
     <label>Capital losses brought forward <small>(before your first year of data)</small>
       <input name="opening_loss" inputmode="decimal" value="{{printf "%.0f" .Set.OpeningLoss}}"></label>
-    <label class="check"><input type="checkbox" name="include_franking" {{if not .Set.ExcludeFranking}}checked{{end}}> Include franking credits in return figures</label>
+    {{if not .Owner}}<label class="check"><input type="checkbox" name="include_franking" {{if not .Set.ExcludeFranking}}checked{{end}}> Include franking credits in return figures</label>{{end}}
     <div class="wide"><button class="btn">Save assumptions</button>
       <span class="muted s">Parcel choice is only valid if you actually identify parcels with your broker/records; otherwise the ATO assumes first in, first out.</span></div>
   </form>
 </section>
+
+{{if .HasOwners}}
+<section class="card">
+  <div class="card-h"><h2>All owners &mdash; {{.FY.FY}}</h2><span class="muted s">each taxed on their own assumptions</span></div>
+  <div class="scroll"><table>
+    <thead><tr><th>Owner</th><th class="r">Holdings</th><th class="r">Other income</th><th class="r">Investment income</th><th class="r">Net capital gain</th><th class="r">Estimated tax</th></tr></thead>
+    <tbody>{{range .Summary}}<tr><td><b>{{.Label}}</b></td><td class="r">{{.Holdings}}</td><td class="r">{{money0 .OtherIncome}}</td><td class="r">{{money .Assessable}}</td><td class="r">{{money .NetCapGain}}</td><td class="r"><b>{{money .NetTax}}</b></td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}
 
 {{with .FY}}
 <section class="stats">
@@ -46,7 +65,7 @@
 
 <section class="card">
   <div class="card-h"><h2>Distributions — {{.FY}}</h2>
-    <span><a class="link" href="/export/tax-distributions.csv?fy={{.FY}}">Export distributions CSV</a> · <a class="link" href="/export/tax-summary.csv">Export all-years summary CSV</a></span></div>
+    <span><a class="link" href="/export/tax-distributions.csv?fy={{.FY}}{{if $.Owner}}&amp;owner={{urlq $.Owner}}{{end}}">Export distributions CSV</a> · <a class="link" href="/export/tax-summary.csv{{if $.Owner}}?owner={{urlq $.Owner}}{{end}}">Export all-years summary CSV</a></span></div>
   <div class="scroll"><table>
     <tbody>
       <tr><td>Cash received</td><td class="r">{{money .CashReceived}}</td></tr>
@@ -63,7 +82,7 @@
 </section>
 
 <section class="card">
-  <div class="card-h"><h2>Capital gains — {{.FY}}</h2><a class="link" href="/export/tax-cgt.csv?fy={{.FY}}">Export CGT events CSV</a></div>
+  <div class="card-h"><h2>Capital gains — {{.FY}}</h2><a class="link" href="/export/tax-cgt.csv?fy={{.FY}}{{if $.Owner}}&amp;owner={{urlq $.Owner}}{{end}}">Export CGT events CSV</a></div>
   <div class="scroll"><table>
     <tbody>
       <tr><td>Gains on assets held over 12 months <span class="muted s">(discount-eligible)</span></td><td class="r">{{money (addf .GainsDisc .DistCGDisc)}}</td></tr>
@@ -91,6 +110,31 @@
   {{else}}<p class="muted s">No disposals recorded in this income year.</p>{{end}}
 </section>
 {{end}}
+
+<section class="card" id="owners">
+  <div class="card-h"><h2>Owners</h2><span class="muted s">optional: tax investments held by different people separately</span></div>
+  <p class="muted s">Tag each investment to the person (or entity) who holds it. Each owner gets their own assumptions above, and the sell estimators tax each owner&rsquo;s part of a sale in their own bracket. Anything not tagged belongs to the default owner.</p>
+  <form method="post" action="/owners" class="inline">
+    <input name="name" placeholder="Owner name, e.g. Sam" maxlength="40" required>
+    <button class="btn">Add owner</button>
+  </form>
+  {{if .HasOwners}}
+  <h3>Who holds what</h3>
+  <form method="post" action="/owners/assign" class="stack">
+    <input type="hidden" name="owner" value="{{.Owner}}"><input type="hidden" name="fy" value="{{.FY.FY}}">
+    <div class="scroll"><table class="compact">
+      <thead><tr><th>Investment</th><th>Owner</th></tr></thead>
+      <tbody>{{range .Assign}}<tr>
+        <td><b>{{short .Symbol}}</b> <span class="muted s">{{.Name}}</span>{{if not .Held}} <span class="tag">no transactions</span>{{end}}</td>
+        <td><select name="owner_{{.Symbol}}" aria-label="Owner of {{short .Symbol}}">
+          <option value="">Unassigned</option>
+          {{$row := .}}{{range $.Tabs}}{{if .Name}}<option value="{{.Name}}" {{if eq .Name $row.Owner}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+        </select></td></tr>{{end}}</tbody>
+    </table></div>
+    <div><button class="btn primary">Save ownership</button></div>
+  </form>
+  {{end}}
+</section>
 
 <section class="card note">
   <h2>What's modelled</h2>

@@ -67,6 +67,7 @@ func (a *App) routes() http.Handler {
 	a.registerReconcile(mux)
 	a.registerPrivate(mux)
 	a.registerTxnEdit(mux)
+	a.registerOwners(mux)
 	mux.HandleFunc("GET /charts", a.chartsPage)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
@@ -495,6 +496,7 @@ var funcs = template.FuncMap{
 		return fmt.Sprintf("%.2f", v)
 	},
 	"addf": func(a, b float64) float64 { return a + b },
+	"urlq": func(s string) string { return url.QueryEscape(s) },
 	"mulf": func(a, b float64) float64 { return a * b },
 	// orig shows the original-currency amount in small brackets after an AUD figure; nothing for AUD itself.
 	"orig": func(ccy string, v float64) string {
