@@ -11,11 +11,17 @@ GitHub wikis link between pages).
 #>
 param([Parameter(Mandatory = $true)][string]$Repo)
 
-$ErrorActionPreference = 'Stop'
+# git writes progress to stderr, which Windows PowerShell treats as an error, so check exit codes instead.
+$ErrorActionPreference = 'Continue'
+function Run([string]$what, [scriptblock]$cmd) {
+    & $cmd 2>&1 | ForEach-Object { "$_" } | Write-Host
+    if ($LASTEXITCODE -ne 0) { throw "$what failed (exit code $LASTEXITCODE)" }
+}
+
 $root = Split-Path -Parent $PSScriptRoot
 $src = Join-Path $root 'docs\wiki'
-$tmp = Join-Path ([IO.Path]::GetTempPath()) ("fundtrack-wiki-" + [guid]::NewGuid().ToString('N'))
-git clone "https://github.com/$Repo.wiki.git" $tmp
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("holdings-wiki-" + [guid]::NewGuid().ToString('N'))
+Run 'clone' { git clone "https://github.com/$Repo.wiki.git" $tmp }
 $pages = Get-ChildItem $src -Filter *.md | ForEach-Object { $_.BaseName }
 foreach ($f in Get-ChildItem $src -Filter *.md) {
     $c = [IO.File]::ReadAllText($f.FullName)
@@ -24,8 +30,13 @@ foreach ($f in Get-ChildItem $src -Filter *.md) {
 }
 Copy-Item (Join-Path $src 'images') $tmp -Recurse -Force
 Push-Location $tmp
-git add -A
-git -c user.name="FundTrack Dev" -c user.email="dev@example.invalid" commit -m "Update wiki from docs/wiki"
-git push
-Pop-Location
-Remove-Item -Recurse -Force $tmp
+try {
+    Run 'add' { git add -A }
+    git diff --cached --quiet
+    if ($LASTEXITCODE -eq 0) { Write-Host 'Wiki is already up to date.' }
+    else {
+        Run 'commit' { git -c user.name="FundTrack Dev" -c user.email="dev@example.invalid" commit -m "Update wiki from docs/wiki" }
+        Run 'push' { git push }
+    }
+}
+finally { Pop-Location; Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue }
