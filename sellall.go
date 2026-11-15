@@ -20,6 +20,7 @@ type SellAllRow struct {
 	Symbol, Name                       string
 	Private                            bool
 	Units, Proceeds, Cost, Long, Short float64 // Long and Short are gains (negative = loss), before the discount
+	ESS                                float64 // income from tax-deferred awarded shares
 	LongLoss, ShortLoss                float64
 	ParcelsLong, ParcelsShort          int
 }
@@ -37,6 +38,8 @@ type SellAll struct {
 	Tax, Pocket         float64
 	PrivateHeld         []string
 	IncludePrivate      bool
+	ESSIncome           float64        // income from selling tax-deferred awarded shares: taxed in full at the top rate
+	TotalTaxable        float64        // net capital gain plus that income: what this sale adds to taxable income
 	PrivateCount        int            // private holdings owned, whether or not they are in this sale
 	PrivateValue        float64        // their value at the latest checkpoints
 	PrivateProceeds     float64        // proceeds from private shares in this sale (0 when left out)
@@ -139,6 +142,9 @@ func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump, includ
 		}
 		r.Cost += e.Cost
 		switch {
+		case e.Kind == "ess": // tax-deferred awarded shares: income taxed in full, not a capital gain or loss
+			r.ESS += e.Gain
+			sa.ESSIncome += e.Gain
 		case e.Gain >= 0 && e.Discount:
 			r.Long += e.Gain
 			r.ParcelsLong++
@@ -181,10 +187,11 @@ func SellAllEstimate(db *DB, date string, now time.Time, nl NewLawAssump, includ
 	}
 	if len(est.Parts) > 1 {
 		for _, p := range est.Parts {
-			sa.ByOwner = append(sa.ByOwner, SellAllOwner{Owner: p.Label, Proceeds: p.NetProceeds, Tax: p.Sel.TaxDelta, Pocket: p.Sel.AfterTax, Taxable: p.Sel.NetCapGainDelta})
+			sa.ByOwner = append(sa.ByOwner, SellAllOwner{Owner: p.Label, Proceeds: p.NetProceeds, Tax: p.Sel.TaxDelta, Pocket: p.Sel.AfterTax, Taxable: p.Sel.NetCapGainDelta + p.Sel.ESSIncome})
 		}
 	}
 	sa.Taxable = est.Sel.NetCapGainDelta
+	sa.TotalTaxable = sa.Taxable + sa.ESSIncome
 	sa.Tax = est.Sel.TaxDelta
 	sa.Pocket = est.Sel.AfterTax
 	_ = CompareNewLawAll(&s, est, nil, est.Sel.Method, nl, now)

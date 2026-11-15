@@ -2,6 +2,7 @@
 <section class="stats">
   <div class="card stat"><span class="lbl">Net sale proceeds</span><span class="big">${{money .NetProceeds}}</span><span class="sub">{{if .Fees}}after ${{money .Fees}} brokerage{{else}}before brokerage{{end}} · {{.Date}}{{if .Future}} (future date, today's prices){{end}}</span></div>
   <div class="card stat"><span class="lbl">Capital gain / (loss)</span><span class="big {{cls .Sel.Gain}}">{{signed .Sel.Gain}}</span><span class="sub">{{signed .Sel.DiscountedGain}} after the 50% discount</span></div>
+  {{if .Sel.ESSIncome}}<div class="card stat"><span class="lbl">Employee share income</span><span class="big">${{money .Sel.ESSIncome}}</span><span class="sub">tax-deferred awards: taxed in full as income, no discount</span></div>{{end}}
   <div class="card stat"><span class="lbl">{{if lt .Sel.TaxDelta -0.005}}Estimated tax saving{{else}}Estimated extra tax{{end}}</span><span class="big {{if gt .Sel.TaxDelta 0.005}}neg{{else if lt .Sel.TaxDelta -0.005}}pos{{end}}">${{money (abs .Sel.TaxDelta)}}</span><span class="sub">for {{.FY}}, incl. 2% Medicare</span></div>
   <div class="card stat"><span class="lbl">Proceeds after tax</span><span class="big">${{money .Sel.AfterTax}}</span><span class="sub">cash left after setting the tax aside</span></div>
 </section>
@@ -23,6 +24,7 @@
     <tbody>
       <tr><td>Sale date</td><td class="r">{{.A.Date}}</td><td class="r">{{.B.A.SaleDate}}</td></tr>
       <tr><td>Net sale proceeds</td><td class="r">{{money .A.NetProceeds}}</td><td class="r">{{money .B.Est.NetProceeds}}{{if ne .B.A.GrowthPA 0.0}}<div class="muted s">at {{printf "%+.1f" .B.A.GrowthPA}}% a year growth</div>{{end}}</td></tr>
+      {{if or .A.Sel.ESSIncome .B.ESSIncome}}<tr><td>Employee share income <span class="muted s">(tax-deferred awards: taxed in full under both rules)</span></td><td class="r">{{money .A.Sel.ESSIncome}}</td><td class="r">{{money .B.ESSIncome}}</td></tr>{{end}}
       <tr><td>Capital gain / (loss) over original cost</td><td class="r {{cls .A.Sel.Gain}}">{{signed .A.Sel.Gain}}</td><td class="r {{cls .B.TotalGain}}">{{signed .B.TotalGain}}</td></tr>
       <tr><td>…built up before 1 July 2027 <span class="muted s">(keeps the 50% discount)</span></td><td class="r muted">—</td><td class="r">{{money .B.DeferredPre}}</td></tr>
       <tr><td>…growth after 1 July 2027 <span class="muted s">(after sale costs)</span></td><td class="r muted">—</td><td class="r">{{signed .B.PostNominal}}</td></tr>
@@ -307,10 +309,12 @@
     <tbody>
       <tr><td>Long-term gains <span class="muted s">(held over 12 months)</span></td><td class="r">{{money .LongGain}}</td></tr>
       <tr><td>Short-term gains <span class="muted s">(held 12 months or less, taxed in full)</span></td><td class="r">{{money .ShortGain}}</td></tr>
+      {{if gt .ESSIncome 0.005}}<tr><td>Employee share income <span class="muted s">(tax-deferred awarded shares: the whole sale value, taxed in full, no discount)</span></td><td class="r">{{money .ESSIncome}}</td></tr>{{end}}
       <tr><td>Capital losses on this sale</td><td class="r">{{if gt .Losses 0.005}}−{{money .Losses}}{{else}}—{{end}}</td></tr>
       {{if gt .ExistingLossesUsed 0.005}}<tr><td>Earlier capital losses used</td><td class="r">−{{money .ExistingLossesUsed}}</td></tr>{{end}}
       <tr><td>50% discount on long-term gains</td><td class="r">{{if gt .Discount 0.005}}−{{money .Discount}}{{else}}—{{end}}</td></tr>
-      <tr class="sel-row"><td><b>Taxable capital gain</b></td><td class="r"><b>{{money .Taxable}}</b></td></tr>
+      <tr><td>Taxable capital gain</td><td class="r">{{money .Taxable}}</td></tr>
+      <tr class="sel-row"><td><b>Added to your taxable income</b></td><td class="r"><b>{{money .TotalTaxable}}</b></td></tr>
       <tr><td>Tax at {{printf "%.0f" (mulf .Rate 100.0)}}% <span class="muted s">(45% + 2% Medicare levy)</span></td><td class="r"><b>${{money .Tax}}</b></td></tr>
       <tr><td><b>Cash in your pocket</b> <span class="muted s">(proceeds − tax)</span></td><td class="r"><b>${{money .Pocket}}</b></td></tr>
     </tbody>
@@ -321,13 +325,14 @@
 <section class="card">
   <div class="card-h"><h2>By holding</h2></div>
   <div class="scroll"><table>
-    <thead><tr><th>Holding</th><th class="r">Proceeds</th><th class="r">Cost base</th><th class="r">Long-term gain</th><th class="r">Short-term gain</th><th class="r">Losses</th></tr></thead>
+    <thead><tr><th>Holding</th><th class="r">Proceeds</th><th class="r">Cost base</th><th class="r">Long-term gain</th><th class="r">Short-term gain</th><th class="r">Losses</th><th class="r">Employee share income</th></tr></thead>
     <tbody>{{range .Rows}}<tr>
       <td><b>{{short .Symbol}}</b>{{if .Private}} <span class="tag">private</span>{{end}}<div class="muted s">{{.Name}} · {{units .Units}} units</div></td>
       <td class="r">{{money .Proceeds}}</td><td class="r">{{money .Cost}}</td>
       <td class="r">{{if gt .Long 0.005}}{{money .Long}}{{else}}—{{end}}</td>
       <td class="r">{{if gt .Short 0.005}}{{money .Short}}{{else}}—{{end}}</td>
       <td class="r">{{if or (gt .LongLoss 0.005) (gt .ShortLoss 0.005)}}−{{money (addf .LongLoss .ShortLoss)}}{{else}}—{{end}}</td>
+      <td class="r">{{if gt .ESS 0.005}}{{money .ESS}}{{else}}—{{end}}</td>
     </tr>{{end}}</tbody>
   </table></div>
 </section>

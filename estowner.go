@@ -60,6 +60,7 @@ func mergeEstimates(parts []*Estimate) *Estimate {
 		for _, p := range parts {
 			pm := p.Methods[i]
 			mr.Gain += pm.Gain
+			mr.ESSIncome += pm.ESSIncome
 			mr.DiscountedGain += pm.DiscountedGain
 			mr.NetCapGainDelta += pm.NetCapGainDelta
 			mr.TaxDelta += pm.TaxDelta

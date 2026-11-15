@@ -116,6 +116,7 @@ func xirr(flows []Flow) (float64, bool) {
 
 type Row struct {
 	Txn
+	Deferred               bool // an award whose tax is deferred until sale (see Instrument.DeferredTax)
 	Name, Market, Currency string
 	FXUsed                 float64
 	GrossAUD               float64 // buy: cost incl. fees; sell: net proceeds; dividend/drp: income
@@ -263,7 +264,7 @@ func Compute(db *DB, now time.Time) *Result {
 		h := s.h
 		when, _ := time.Parse(dateFmt, t.Date)
 		fx := t.FX
-		row := Row{Txn: t, Name: inst.Name, Market: inst.Market, Currency: inst.Currency}
+		row := Row{Txn: t, Name: inst.Name, Market: inst.Market, Currency: inst.Currency, Deferred: inst.DeferredTax && t.Type == "award"}
 		if fx <= 0 {
 			v, ok := fxAt(inst.Currency, t.Date)
 			if !ok {

@@ -87,6 +87,7 @@
     <tbody>
       <tr><td>Gains on assets held over 12 months <span class="muted s">(discount-eligible)</span></td><td class="r">{{money (addf .GainsDisc .DistCGDisc)}}</td></tr>
       <tr><td>Other gains</td><td class="r">{{money (addf .GainsOther .DistCGOther)}}</td></tr>
+      {{if .ESSIncome}}<tr><td>Employee share scheme income <span class="muted s">(tax-deferred awards sold; taxed in full as income, not a capital gain)</span></td><td class="r">{{money .ESSIncome}}</td></tr>{{end}}
       <tr><td>Capital losses this year</td><td class="r">−{{money .Losses}}</td></tr>
       <tr><td>Losses brought forward</td><td class="r">−{{money .LossBroughtFwd}}</td></tr>
       <tr><td>50% CGT discount applied</td><td class="r">−{{money .DiscountApplied}}</td></tr>
@@ -99,12 +100,12 @@
   <div class="scroll"><table>
     <thead><tr><th>Sold</th><th>Holding</th><th>Acquired</th><th class="r">Units</th><th class="r">Cost base</th><th class="r">Proceeds</th><th class="r">Gain / (loss)</th><th>12m+</th></tr></thead>
     <tbody>{{range .Events}}<tr>
-      <td>{{.Sold}}</td><td><b>{{short .Symbol}}</b>{{if eq .Kind "E4"}} <span class="tag">E4</span>{{end}}</td>
+      <td>{{.Sold}}</td><td><b>{{short .Symbol}}</b>{{if eq .Kind "E4"}} <span class="tag">E4</span>{{end}}{{if eq .Kind "ess"}} <span class="tag">income</span>{{end}}</td>
       <td>{{if .Acquired}}{{.Acquired}} <span class="muted s">({{.Days}}d)</span>{{else}}—{{end}}</td>
       <td class="r">{{if .Units}}{{units .Units}}{{end}}</td>
       <td class="r">{{money .Cost}}</td><td class="r">{{money .Proceeds}}</td>
       <td class="r {{cls .Gain}}">{{signed .Gain}}</td>
-      <td>{{if .Discount}}<span class="pill buy">50% off</span>{{else if eq .Kind "E4"}}<span class="muted s">cost base used up</span>{{else}}<span class="muted s">no</span>{{end}}</td>
+      <td>{{if .Discount}}<span class="pill buy">50% off</span>{{else if eq .Kind "E4"}}<span class="muted s">cost base used up</span>{{else if eq .Kind "ess"}}<span class="muted s">taxed in full as income</span>{{else}}<span class="muted s">no</span>{{end}}</td>
     </tr>{{end}}</tbody>
   </table></div>
   {{else}}<p class="muted s">No disposals recorded in this income year.</p>{{end}}

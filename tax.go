@@ -79,6 +79,7 @@ func taxAndMedicare(fy string, inc float64) float64 {
 // ---------- capital gains ----------
 
 type parcel struct {
+	ess   bool // awarded under a tax-deferred share scheme: a sale is ordinary income, not a capital gain
 	acq   time.Time
 	acqS  string
 	units float64
@@ -162,7 +163,7 @@ func cgtReplay(rows []Row, method, estMethod string, picks map[string][]Pick) ([
 				d = d.AddDate(-1, 0, -1) // known to be over 12 months old; the exact day isn't
 				acqS = d.Format(dateFmt)
 			}
-			parcels[r.Symbol] = append(parcels[r.Symbol], &parcel{acq: d, acqS: acqS, units: r.Units, cost: r.GrossAUD, seq: len(parcels[r.Symbol])})
+			parcels[r.Symbol] = append(parcels[r.Symbol], &parcel{ess: r.Deferred, acq: d, acqS: acqS, units: r.Units, cost: r.GrossAUD, seq: len(parcels[r.Symbol])})
 		case "sell":
 			sold, _ := time.Parse(dateFmt, r.Date)
 			ps := parcels[r.Symbol]
@@ -196,6 +197,20 @@ func cgtReplay(rows []Row, method, estMethod string, picks map[string][]Pick) ([
 				}
 				cost := p.cost * u / p.units
 				proceeds := ppu * u
+				if p.ess {
+					// No tax was paid when these shares were awarded, so the whole sale value (you paid nothing for
+					// them) is assessable income at the sale. Their cost base for CGT then equals that value, so there
+					// is no capital gain or loss and no discount.
+					out = append(out, CGTEvent{
+						FY: fyOf(r.Date), Symbol: r.Symbol, Name: r.Name, Acquired: p.acqS, Sold: r.Date, Kind: "ess", TxnID: r.ID,
+						Units: u, Cost: 0, Proceeds: proceeds, Gain: proceeds,
+						Days: int(sold.Sub(p.acq).Hours() / 24),
+					})
+					p.cost -= cost
+					p.units -= u
+					need -= u
+					return
+				}
 				out = append(out, CGTEvent{
 					FY: fyOf(r.Date), Symbol: r.Symbol, Name: r.Name, Acquired: p.acqS, Sold: r.Date, Kind: "sale", TxnID: r.ID,
 					Units: u, Cost: cost, Proceeds: proceeds, Gain: proceeds - cost,
@@ -277,6 +292,7 @@ type FYTax struct {
 	GainsDisc, GainsOther, Losses               float64 // from disposals (gross, before losses/discount)
 	LossBroughtFwd                              float64
 	NetCapGain, LossCarriedFwd, DiscountApplied float64
+	ESSIncome                                   float64 // sales of tax-deferred awarded shares: ordinary income, taxed in full
 	// estimate
 	Assessable, OtherIncome                      float64
 	TaxOnTop, Offsets, NetPayable, EffectiveRate float64
@@ -353,6 +369,8 @@ func ComputeTax(db *DB, rows []Row, now time.Time) *TaxResult {
 		f := get(e.FY)
 		f.Events = append(f.Events, e)
 		switch {
+		case e.Kind == "ess":
+			f.ESSIncome += e.Gain
 		case e.Gain < 0:
 			f.Losses += -e.Gain
 		case e.Discount:
@@ -375,7 +393,7 @@ func ComputeTax(db *DB, rows []Row, now time.Time) *TaxResult {
 			f.GainsDisc+f.DistCGDisc, f.GainsOther+f.DistCGOther, f.Losses+carry)
 		carry = f.LossCarriedFwd
 
-		f.Assessable = f.Franked + f.Unfranked + f.Franking + f.NetCapGain
+		f.Assessable = f.Franked + f.Unfranked + f.Franking + f.NetCapGain + f.ESSIncome
 		f.OtherIncome = set.OtherIncome
 		f.TaxOnTop = taxAndMedicare(f.FY, set.OtherIncome+f.Assessable) - taxAndMedicare(f.FY, set.OtherIncome)
 		f.FTOClaimed = f.ForeignTaxOffset

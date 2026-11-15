@@ -414,6 +414,7 @@ func (a *App) registerPrivate(mux *http.ServeMux) {
 type privRow struct {
 	Symbol, Name, Currency, SearchTerm string
 	SharesOut                          float64
+	DeferredTax                        bool
 	Units, ValueAUD, CostAUD           float64
 	Price                              float64
 	PriceAUD, FXRate                   float64 // the latest price in AUD and the rate used (foreign companies only)
@@ -451,7 +452,7 @@ func (a *App) privatePage(w http.ResponseWriter, r *http.Request, searchSym stri
 			if term == "" {
 				term = inst.Name
 			}
-			p := privRow{Symbol: inst.Symbol, Name: inst.Name, Currency: inst.Currency, SearchTerm: term, SharesOut: inst.SharesOut,
+			p := privRow{Symbol: inst.Symbol, Name: inst.Name, Currency: inst.Currency, SearchTerm: term, SharesOut: inst.SharesOut, DeferredTax: inst.DeferredTax,
 				WebSearch: "https://duckduckgo.com/?q=" + url.QueryEscape(`"`+term+`" valuation funding round`)}
 			if h := held[inst.Symbol]; h != nil {
 				p.Units, p.ValueAUD, p.CostAUD = h.Units, h.ValueAUD, h.CostAUD
@@ -510,6 +511,7 @@ func (a *App) privateCompany(w http.ResponseWriter, r *http.Request) {
 	}
 	shares := parseAmount(r.FormValue("shares_out"))
 	switched := false
+	deferred := r.FormValue("deferred_tax") != ""
 	term := strings.TrimSpace(r.FormValue("search_term"))
 	err := a.st().Update(func(db *DB) error {
 		if sym == "" { // new company
@@ -523,7 +525,7 @@ func (a *App) privateCompany(w http.ResponseWriter, r *http.Request) {
 			if db.Instruments[sym] != nil {
 				return fmt.Errorf("%s is already in your records", name)
 			}
-			db.Instruments[sym] = &Instrument{Symbol: sym, Name: name, Currency: ccy, Market: MarketManaged, Private: true, SharesOut: shares, SearchTerm: term}
+			db.Instruments[sym] = &Instrument{Symbol: sym, Name: name, Currency: ccy, Market: MarketManaged, Private: true, SharesOut: shares, SearchTerm: term, DeferredTax: deferred}
 			return nil
 		}
 		inst := db.Instruments[sym]
@@ -533,7 +535,7 @@ func (a *App) privateCompany(w http.ResponseWriter, r *http.Request) {
 		if name != "" {
 			inst.Name = name
 		}
-		inst.SharesOut, inst.SearchTerm = shares, term
+		inst.SharesOut, inst.SearchTerm, inst.DeferredTax = shares, term, deferred
 		if ccy != inst.Currency {
 			used := len(db.Checkpoints[sym]) > 0
 			for _, t := range db.Txns {

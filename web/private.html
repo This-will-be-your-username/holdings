@@ -77,6 +77,7 @@
       <label>Name <input name="name" value="{{.Name}}"></label>
       <label>Currency <input name="currency" list="ccys" value="{{.Currency}}" maxlength="3" size="4"></label>
       <label class="xp-opt"><input type="checkbox" name="reinterpret" value="1"> If I change the currency: my existing prices and checkpoints really are in the new currency</label>
+      <label class="check wide"><input type="checkbox" name="deferred_tax" value="1" {{if .DeferredTax}}checked{{end}}><span>No tax has been paid on my awarded shares <small>(employee share scheme with tax deferred until sale: the whole sale value is then taxed as income at your marginal rate, with no 50% discount, and there is no capital gain or loss)</small></span></label>
       <label>Shares on issue (fully diluted) <input name="shares_out" inputmode="decimal" value="{{if .SharesOut}}{{printf "%.0f" .SharesOut}}{{end}}" placeholder="optional"></label>
       <label>Search for <input name="search_term" value="{{.SearchTerm}}" placeholder="a name used in news coverage, if different"></label>
       <div><button class="btn">Save details</button></div>
@@ -94,6 +95,7 @@
     <label>Company name <input name="name" required placeholder="e.g. Acme Robotics Pty Ltd"></label>
     <label>Currency <small>(the company reports in; values are tracked in it and shown in AUD at the latest rate)</small> <input name="currency" list="ccys" value="AUD" maxlength="3" size="6"></label>
     <datalist id="ccys"><option value="AUD"><option value="USD"><option value="EUR"><option value="GBP"><option value="NZD"><option value="CAD"><option value="SGD"><option value="JPY"><option value="HKD"><option value="CHF"></datalist>
+    <label class="check wide"><input type="checkbox" name="deferred_tax" value="1"><span>No tax has been paid on my awarded shares <small>(tax is deferred until sale and the whole value is taxed as income then)</small></span></label>
     <label>Shares on issue (fully diluted) <input name="shares_out" inputmode="decimal" placeholder="optional — lets you enter a company valuation"></label>
     <label>Search for <input name="search_term" placeholder="optional — name used in news coverage, if different"></label>
     <div><button class="btn primary">Add company</button></div>

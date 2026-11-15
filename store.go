@@ -39,6 +39,11 @@ type Instrument struct {
 	SharesOut  float64 `json:"shares_out,omitempty"`  // shares on issue (fully diluted); turns a company valuation into a price per share
 	SearchTerm string  `json:"search_term,omitempty"` // what to search for when looking for a new valuation (defaults to the name)
 
+	// DeferredTax: awarded shares (employee share scheme) on which no tax has been paid yet, because tax is deferred until
+	// a sale or other taxing point. Selling them produces ordinary income (the sale value, less anything you paid), taxed
+	// at your marginal rate with no 50% discount - not a capital gain or loss. See tax.go.
+	DeferredTax bool `json:"deferred_tax,omitempty"`
+
 	// Owner is who holds this investment, for tax (optional; see owners.go). Blank = the default owner.
 	Owner string `json:"owner,omitempty"`
 }

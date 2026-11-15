@@ -65,6 +65,7 @@ type NewLawResult struct {
 	PostGain                     float64 // post-change gain after indexation and losses
 	LossesUsed, LossCarried      float64
 	TotalGain                    float64 // proceeds less original cost base, all parcels
+	ESSIncome                    float64 // income from tax-deferred awarded shares, added on top of other income
 	MarginalTax, TopUp, TaxDelta float64
 	AfterTax                     float64
 }
@@ -133,9 +134,11 @@ func NewLawCompute(est *Estimate, v0 map[string]float64, a NewLawAssump) *NewLaw
 
 	// tax: gains stacked on top of your other income, with the 30% floor on the post-change part
 	fy := est.FY
-	ordinary := est.Base.OtherIncome + est.Base.Franked + est.Base.Unfranked + est.Base.Franking
+	ess := est.Sel.ESSIncome // tax-deferred awarded shares: ordinary income, the same under either set of rules
+	r.ESSIncome = ess
+	ordinary := est.Base.OtherIncome + est.Base.Franked + est.Base.Unfranked + est.Base.Franking + ess
 	total := r.DeferredTaxable + r.PostGain
-	r.MarginalTax = taxAndMedicare(fy, ordinary+total) - taxAndMedicare(fy, ordinary)
+	r.MarginalTax = taxAndMedicare(fy, ordinary+total) - taxAndMedicare(fy, ordinary-ess)
 	incomeOnPost := incomeTax(fy, ordinary+total) - incomeTax(fy, ordinary+r.DeferredTaxable)
 	r.TopUp = math.Max(0, minTaxRate*r.PostGain-incomeOnPost)
 	r.TaxDelta = r.MarginalTax + r.TopUp

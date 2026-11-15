@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -213,5 +214,95 @@ func TestSellAllPrivateTickBox(t *testing.T) {
 	}
 	if body := get("/estimator?mode=all&sent=1&private=1"); !strings.Contains(body, "Includes private holdings") {
 		t.Error("ticking the box includes them again")
+	}
+}
+
+// a private award whose tax is deferred: valued 2 years ago at 20 a share (the old way of recording it), worth 12 now
+func sellAllWithDeferredAward(now time.Time, deferred bool) *DB {
+	db := sellAllDB(now) // public: long gain 1000, short gain 500, long loss 500 -> 500 taxable
+	db.Instruments["PVT-X"] = &Instrument{Symbol: "PVT-X", Name: "X Pty Ltd", Currency: "AUD", Market: MarketManaged, Private: true, DeferredTax: deferred}
+	db.Txns = append(db.Txns, Txn{ID: "a1", Date: now.AddDate(-2, 0, 0).Format(dateFmt), Symbol: "PVT-X", Type: "award", Units: 100, Price: 20})
+	AddCheckpoint(db, "PVT-X", Checkpoint{Date: now.AddDate(0, 0, -30).Format(dateFmt), Price: 12})
+	return db
+}
+
+func TestDeferredTaxAwardsAreIncomeNotACapitalLoss(t *testing.T) {
+	now := time.Now()
+	date := now.Format(dateFmt)
+	wrong, err := SellAllEstimate(sellAllWithDeferredAward(now, false), date, now, DefaultNewLaw(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// recorded as an ordinary award the sale looks like an 800 capital loss, which eats into the public gains
+	if math.Abs(wrong.Losses-1300) > 0.01 || math.Abs(wrong.Taxable-100) > 0.01 {
+		t.Fatalf("without the flag: losses %v taxable %v", wrong.Losses, wrong.Taxable)
+	}
+	sa, err := SellAllEstimate(sellAllWithDeferredAward(now, true), date, now, DefaultNewLaw(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sa.Losses != 500 || sa.LongGain != 1000 || sa.ShortGain != 500 {
+		t.Fatalf("the public gains and losses must be untouched by the private award: long %v short %v losses %v", sa.LongGain, sa.ShortGain, sa.Losses)
+	}
+	if math.Abs(sa.ESSIncome-1200) > 0.01 || math.Abs(sa.Taxable-500) > 0.01 || math.Abs(sa.TotalTaxable-1700) > 0.01 {
+		t.Fatalf("ess %v taxable gain %v total %v", sa.ESSIncome, sa.Taxable, sa.TotalTaxable)
+	}
+	// public: 500 after discount; award: the whole 1,200, no discount; all at 47%  => 1,700 x 0.47 = 799
+	if math.Abs(sa.Tax-799) > 0.01 || math.Abs(sa.Pocket-(6200-799)) > 0.01 {
+		t.Fatalf("tax %v pocket %v, want 799 and %v", sa.Tax, sa.Pocket, 6200-799)
+	}
+	for _, r := range sa.Rows {
+		if r.Symbol == "PVT-X" && (math.Abs(r.ESS-1200) > 0.01 || r.Long != 0 || r.Short != 0 || r.LongLoss != 0) {
+			t.Fatalf("private row %+v", r)
+		}
+	}
+	// the sale of the private shares alone is 1,200 of income at the top rate
+	est, err := EstimateSale(withBracket(sellAllWithDeferredAward(now, true), "top"), []SaleReq{{Symbol: "PVT-X", All: true}}, date, "fifo", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(est.Sel.TaxDelta-564) > 0.01 || est.Sel.Gain != 0 || est.Sel.ESSIncome != 1200 {
+		t.Fatalf("private alone: tax %v gain %v ess %v", est.Sel.TaxDelta, est.Sel.Gain, est.Sel.ESSIncome)
+	}
+	// new rules treat it as ordinary income too: same tax on that part
+	nl, err := CompareNewLaw(withBracket(sellAllWithDeferredAward(now, true), "top"), est, nil, est.Sel.Method, NewLawAssump{SaleDate: "2027-07-01", CPI: 2.5}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(nl.B.ESSIncome-1200) > 0.01 || nl.B.TotalGain != 0 {
+		t.Fatalf("new rules: ess %v capital %v", nl.B.ESSIncome, nl.B.TotalGain)
+	}
+}
+
+func TestDeferredTaxShowsOnTheTaxPageAndPrivateSettings(t *testing.T) {
+	now := time.Now()
+	a, _ := newApp(t.TempDir() + "/d.json")
+	a.st().Update(func(db *DB) error { *db = *sellAllWithDeferredAward(now, false); return nil })
+	// the setting is saved from the Private page
+	r := postForm(t, a, "/private/company", url.Values{"symbol": {"PVT-X"}, "name": {"X Pty Ltd"}, "currency": {"AUD"}, "deferred_tax": {"1"}})
+	if strings.Contains(r.Header().Get("Location"), "err=") {
+		t.Fatalf("save: %s", r.Header().Get("Location"))
+	}
+	a.st().View(func(db *DB) {
+		if !db.Instruments["PVT-X"].DeferredTax {
+			t.Fatal("flag not saved")
+		}
+	})
+	if !strings.Contains(getPage(a, "/private"), `name="deferred_tax" value="1" checked`) {
+		t.Error("the private page should show the box ticked")
+	}
+	// a recorded sale shows as income on the tax page, with no capital loss
+	a.st().Update(func(db *DB) error {
+		db.Txns = append(db.Txns, Txn{ID: "s9", Date: now.AddDate(0, 0, -1).Format(dateFmt), Symbol: "PVT-X", Type: "sell", Units: 100, Price: 12})
+		return nil
+	})
+	body := getPage(a, "/tax")
+	if !strings.Contains(body, "Employee share scheme income") || !strings.Contains(body, "taxed in full as income") {
+		t.Error("tax page should list the sale as employee share income")
+	}
+	_, tr, _ := a.computeTax("")
+	y := tr.ByFY[fyOf(now.Format(dateFmt))]
+	if y == nil || math.Abs(y.ESSIncome-1200) > 0.01 || y.Losses != 0 {
+		t.Fatalf("FY %+v", y)
 	}
 }

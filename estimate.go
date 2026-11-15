@@ -31,6 +31,7 @@ type SaleLine struct {
 type MethodResult struct {
 	Method, Label                                   string
 	Gain, DiscountedGain, NetCapGainDelta, TaxDelta float64
+	ESSIncome                                       float64 // income from selling tax-deferred awarded shares (taxed in full, not a capital gain)
 	AfterTax                                        float64
 	Best                                            bool
 	Events                                          []CGTEvent
@@ -185,6 +186,10 @@ func estimateCore(db *DB, reqs []SaleReq, date, selected string, now time.Time) 
 		for _, e := range tr.All {
 			if isEst(e.TxnID) {
 				mr.Events = append(mr.Events, e)
+				if e.Kind == "ess" {
+					mr.ESSIncome += e.Gain
+					continue
+				}
 				mr.Gain += e.Gain
 				mr.DiscountedGain += e.DiscountedGain()
 			}
