@@ -1,15 +1,15 @@
 # Running with Docker
 
-Holdings ships with a `Dockerfile`, so you can run it without installing Go. The image is a small Alpine container holding one static binary. Your data lives in a volume outside the container, so it survives rebuilds and upgrades.
+Holdings is published as a container image on GitHub (`ghcr.io/this-will-be-your-username/holdings`), so you can run it without installing Go. The image is a small Alpine container holding one static binary. Your data lives in a volume outside the container, so it survives upgrades.
 
 ## Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) (Docker Desktop on Windows or macOS, Docker Engine on Linux).
-- A clone of the repository. The image is built from source; there is no published image.
+- Nothing else for Compose: it pulls the image from GitHub. A clone of the repository is only needed to build the image yourself (see Build).
 
-## Build
+## Build (optional)
 
-From the repository root:
+The commands on this page use the published image. To build it yourself from source instead, from the repository root:
 
 ```bash
 docker build -t holdings .
@@ -21,7 +21,7 @@ docker build -t holdings .
 docker run -d --name holdings \
   -p 127.0.0.1:8080:8080 \
   -v holdings-data:/data \
-  holdings
+  ghcr.io/this-will-be-your-username/holdings:latest
 ```
 
 Open <http://127.0.0.1:8080>.
@@ -38,12 +38,12 @@ What the options do:
 
 ## Docker Compose
 
-If you prefer Compose, use the `compose.yaml` in the repository root (or save this as `compose.yaml` next to the `Dockerfile`):
+The easiest way. Save this as `compose.yaml` (or use the one in the repository root); it pulls the published image, so no clone or build is needed:
 
 ```yaml
 services:
   holdings:
-    build: .
+    image: ${HOLDINGS_IMAGE:-ghcr.io/this-will-be-your-username/holdings:latest}
     ports: ["${HOLDINGS_BIND:-127.0.0.1}:${HOLDINGS_PORT:-8080}:8080"]
     volumes: ["${HOLDINGS_DATA:-holdings-data}:/data"]
     restart: ${HOLDINGS_RESTART:-unless-stopped}
@@ -53,13 +53,14 @@ volumes:
 ```
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 Every value has a default, so it works as is. To change one, set the variable in your shell or in a `.env` file beside `compose.yaml`:
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `HOLDINGS_IMAGE` | `ghcr.io/this-will-be-your-username/holdings:latest` | Image to run. Pin a version tag such as `:1.2.3` if you like, or use a locally built image such as `holdings`. |
 | `HOLDINGS_BIND` | `127.0.0.1` | Host address to publish on. Leave it on the loopback address (see the security note above). |
 | `HOLDINGS_PORT` | `8080` | Host port. |
 | `HOLDINGS_DATA` | `holdings-data` | Named volume, or a folder path such as `./data`, for your data. |
@@ -70,7 +71,7 @@ Every value has a default, so it works as is. To change one, set the variable in
 The image sets `ADDR=0.0.0.0:8080` and `DATA_FILE=/data/fundtrack.json`. Other [environment variables](Getting-Started.md) can be passed with `-e`:
 
 ```bash
-docker run -d --name holdings -p 127.0.0.1:8080:8080 -v holdings-data:/data -e TEST_MODE=1 holdings
+docker run -d --name holdings -p 127.0.0.1:8080:8080 -v holdings-data:/data -e TEST_MODE=1 ghcr.io/this-will-be-your-username/holdings:latest
 ```
 
 Leave `ADDR` and `DATA_FILE` alone unless you also change the port and volume to match. Telegram and most other settings are configured in the app itself, on the **Settings** page ([Telegram Bot](Telegram-Bot.md)), and are stored in the data volume.
@@ -98,16 +99,14 @@ If you already have a `data/fundtrack.json` from running the app directly, you c
 
 ## Upgrading
 
-Pull the new code, rebuild and recreate the container. The volume is kept, so your data stays.
+Pull the new image and recreate the container. The volume is kept, so your data stays.
 
 ```bash
-git pull
-docker build -t holdings .
-docker rm -f holdings
-docker run -d --name holdings -p 127.0.0.1:8080:8080 -v holdings-data:/data holdings
+docker compose pull
+docker compose up -d
 ```
 
-(With Compose, `git pull` then `docker compose up -d --build`.)
+If you built the image yourself, run `git pull`, then `docker build -t holdings .`, then `docker rm -f holdings` and the `docker run` command above with `holdings` as the image name.
 
 ## Troubleshooting
 
