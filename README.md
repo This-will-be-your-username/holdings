@@ -56,7 +56,7 @@ go test ./...      # run the tests (synthetic data, no network)
 - [Transactions](docs/wiki/Transactions.md) and [Importing Transactions](docs/wiki/Importing-Transactions.md)
 - [Tax and CGT](docs/wiki/Tax-and-CGT.md), [Owners](docs/wiki/Owners.md) and the [Sell Estimator](docs/wiki/Sell-Estimator.md)
 - [Private Companies](docs/wiki/Private-Companies.md), [Charts](docs/wiki/Charts.md) and [Reconcile](docs/wiki/Reconcile.md)
-- [Configuration and Data](docs/wiki/Configuration-and-Data.md) and [Architecture](docs/wiki/Architecture.md)
+- [Telegram Bot](docs/wiki/Telegram-Bot.md), [Configuration and Data](docs/wiki/Configuration-and-Data.md) and [Architecture](docs/wiki/Architecture.md)
 - [Limitations and FAQ](docs/wiki/Limitations-and-FAQ.md)
 
 The same pages are published as the repository's [GitHub wiki](../../wiki). They are plain Markdown kept in `docs/wiki` so they are versioned with the code; `./scripts/publish-wiki.ps1 -Repo owner/holdings` copies them to the wiki.

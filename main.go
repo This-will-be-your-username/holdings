@@ -25,10 +25,11 @@ type App struct {
 	liveSaved time.Time // when the live-quote side file was last written
 	pages     map[string]*template.Template
 	refreshMu sync.Mutex
-	modes     // real vs test data stores (see testmode.go)
+	tg        tgState // Telegram bot (see telegram.go)
+	modes             // real vs test data stores (see testmode.go)
 }
 
-var pageNames = []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan", "reconcile", "private", "charts", "txnedit"}
+var pageNames = []string{"dashboard", "transactions", "prices", "tax", "distributions", "estimator", "outlook", "import", "plan", "reconcile", "private", "charts", "txnedit", "settings"}
 
 // newApp opens the data stores and parses every page template.
 func newApp(dataFile string) (*App, error) {
@@ -43,6 +44,7 @@ func newApp(dataFile string) (*App, error) {
 		}
 		a.pages[p] = tpl
 	}
+	a.tg.load(a.dir)
 	return a, nil
 }
 
@@ -68,6 +70,7 @@ func (a *App) routes() http.Handler {
 	a.registerPrivate(mux)
 	a.registerTxnEdit(mux)
 	a.registerOwners(mux)
+	a.registerSettings(mux)
 	mux.HandleFunc("GET /charts", a.chartsPage)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +101,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	a.startTelegram()
 	go a.liveLoop()
 	go func() { _, _ = a.LiveTick(false) }()
 	go func() {

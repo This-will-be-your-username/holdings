@@ -9,6 +9,7 @@
 * [Transactions](Transactions.md)
 * [Importing Transactions](Importing-Transactions.md)
 * [Prices and Exchange Rates](Prices-and-Exchange-Rates.md)
+* [Telegram Bot](Telegram-Bot.md)
 * [Charts](Charts.md)
 * [Reconcile](Reconcile.md)
 

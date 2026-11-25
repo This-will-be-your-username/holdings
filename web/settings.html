@@ -1,0 +1,57 @@
+{{define "content"}}
+<div class="head"><div><h1>Settings</h1>
+<p class="muted">Connect a Telegram bot to check your holdings from your phone: ask it to pull fresh prices, send a snapshot of the latest prices, and draw small graphs of the last week.</p></div></div>
+
+<section class="card" id="telegram">
+  <div class="card-h"><h2>Telegram bot</h2>
+    <span class="muted s">{{if .TG.Running}}{{if .TG.LastErr}}running, but {{.TG.LastErr}}{{else}}running{{if .TG.BotName}} as @{{.TG.BotName}}{{end}}{{if .TG.LastOK}} · last contact {{.TG.LastOK}}{{end}}{{end}}{{else}}off{{end}}</span></div>
+
+  <form method="post" action="/settings/telegram" class="stack">
+    <label class="check"><input type="checkbox" name="enabled" value="1" {{if .TG.Enabled}}checked{{end}}> Turn the bot on</label>
+    <label>Bot token
+      <input type="password" name="token" autocomplete="off" spellcheck="false" placeholder="{{if .TG.HasToken}}saved ({{.TG.TokenHint}}), leave blank to keep it{{else}}123456789:AA… from BotFather{{end}}">
+    </label>
+    <label>Approved chat id
+      <input name="chat_id" inputmode="numeric" autocomplete="off" value="{{if .TG.ChatID}}{{.TG.ChatID}}{{end}}" placeholder="filled in when you approve a chat below">
+    </label>
+    <div><button class="btn primary">Save</button></div>
+  </form>
+
+  {{if and .TG.Enabled .TG.HasToken (not .TG.ChatID)}}
+  <div class="fund-status">
+    {{if .TG.PendingChat}}
+    <div><span class="lbl">Waiting for your approval</span><br><b>{{.TG.PendingName}}</b> <span class="muted s">chat id {{.TG.PendingChat}}</span></div>
+    <form method="post" action="/settings/telegram/approve" class="inline">
+      <input type="hidden" name="chat" value="{{.TG.PendingChat}}">
+      <button class="btn primary">Approve this chat</button>
+    </form>
+    {{else}}
+    <div class="muted">Open your bot in Telegram and send <code>/start</code>. The chat appears here for you to approve.</div>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{if .TG.ChatID}}
+  <div class="fund-actions">
+    <form method="post" action="/settings/telegram/test"><button class="btn" {{if not .TG.Running}}disabled title="Turn the bot on first"{{end}}>Send a test message</button></form>
+  </div>
+  {{end}}
+
+  <details class="fund-more"><summary>How to set it up</summary>
+    <ol class="s">
+      <li>In Telegram, open <b>@BotFather</b>, send <code>/newbot</code> and follow the prompts. It gives you a token.</li>
+      <li>Paste the token above, tick <b>Turn the bot on</b> and save.</li>
+      <li>Open your new bot and send <code>/start</code>. Come back here and press <b>Approve this chat</b>.</li>
+    </ol>
+    <p class="s">Commands: <code>/refresh</code> pulls fresh prices then sends a snapshot; <code>/prices</code> sends the snapshot; <code>/graph</code> or <code>/graph VGS</code> sends last week's graphs. Each snapshot also has buttons offering the graphs.</p>
+  </details>
+
+  <p class="muted s"><b>Privacy:</b> the bot only answers the one approved chat; anyone else is refused. It connects out to Telegram (no port is opened on your computer). Messages carry prices, symbols and your portfolio total, so they pass through Telegram's servers. The token is stored in <code>telegram.json</code> beside your data file, not in the data file itself.</p>
+
+  {{if or .TG.HasToken .TG.ChatID}}
+  <form method="post" action="/settings/telegram/forget" onsubmit="return confirm('Remove the bot token and approved chat from this computer?')">
+    <button class="btn danger">Remove Telegram settings</button>
+  </form>
+  {{end}}
+</section>
+{{end}}

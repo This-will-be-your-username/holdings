@@ -37,6 +37,7 @@ browser  <->  net/http routes  <->  compute (pure functions)  <->  Store (JSON f
 | `market.go` | Yahoo chart client, exchange-rate fetch, instrument resolution. |
 | `live.go` | Live quote polling during market hours, status for the dashboard. |
 | `refresh.go` | Background refresh of history (incremental), ASX details, Vanguard prices, benchmarks. |
+| `telegram.go`, `sparkline.go`, `settingspage.go` | Telegram bot (long polling, commands, snapshot), PNG graph drawing, and the Settings page. |
 | `fx.go` | Exchange-rate refresh on its own 24-hour schedule. |
 | `vanguard.go`, `priceimport.go`, `xlsx.go` | Vanguard API client, price-history file import, xlsx reader. |
 | `pricelookup.go` | Closing-price lookup for manual transactions. |

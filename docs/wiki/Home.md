@@ -20,6 +20,7 @@ It runs on your own computer as a small web app. Your data stays in a single fil
 | Planning | Target allocation, six-month outlook, interactive charts | [Target Allocation](Target-Allocation.md), [Outlook](Outlook.md), [Charts](Charts.md) |
 | Unlisted holdings | Private companies with value checkpoints and valuation search, tax-deferred employee shares | [Private Companies](Private-Companies.md) |
 | Checking | Compare against your provider's holdings export | [Reconcile](Reconcile.md) |
+| Phone access | A Telegram bot that pulls prices, sends a snapshot and draws last week's graphs | [Telegram Bot](Telegram-Bot.md) |
 | Trying it out | A full set of simulated data you can switch on and off | [Test Mode](Test-Mode.md) |
 
 ## Start here

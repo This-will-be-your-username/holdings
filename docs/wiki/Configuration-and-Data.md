@@ -10,12 +10,15 @@
 
 Tax assumptions (other income, parcel method, losses brought forward) and owners are stored in the data file and edited on the [Tax](Tax-and-CGT.md) page.
 
+The Telegram bot token and approved chat are edited on the **Settings** page and stored in `telegram.json` beside the data file; see [Telegram Bot](Telegram-Bot.md).
+
 ## Files
 
 | File | Contents |
 |---|---|
 | `<data file>` (JSON) | Transactions, instruments, saved prices, manual prices, distributions, exchange rates, import log, settings, owners, private-company checkpoints. |
 | `<data file>.quotes` | The latest live quotes. Kept separately because they change every few seconds. |
+| `telegram.json` (same folder) | Telegram bot token and approved chat (owner-only). |
 | `fundtrack-test.json` (same folder) | The simulated test data. |
 | `mode` (same folder) | Remembers whether test mode is on. |
 
@@ -45,6 +48,7 @@ All requests are made by the app on your behalf, and none needs an account or ke
 | ASX public API | ASX distribution details | ASX codes |
 | Vanguard Australia | Unit prices for unlisted Vanguard funds | The fund's id |
 | Frankfurter (ECB rates) | Exchange rates | Currency codes and dates |
+| Telegram (api.telegram.org) | Only if you turn the bot on | Your bot token, and the price snapshots and graphs the bot sends you |
 | DuckDuckGo (HTML) | Only when you press *Search for a valuation* on a private company | The company name |
 
 No transaction amounts, units, balances or personal details are sent anywhere. In [Test Mode](Test-Mode.md) price fetching and the valuation search are switched off.
