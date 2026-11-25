@@ -38,17 +38,15 @@ What the options do:
 
 ## Docker Compose
 
-If you prefer Compose, save this as `compose.yaml` next to the `Dockerfile`:
+If you prefer Compose, use the `compose.yaml` in the repository root (or save this as `compose.yaml` next to the `Dockerfile`):
 
 ```yaml
 services:
   holdings:
     build: .
-    ports:
-      - "127.0.0.1:8080:8080"
-    volumes:
-      - holdings-data:/data
-    restart: unless-stopped
+    ports: ["${HOLDINGS_BIND:-127.0.0.1}:${HOLDINGS_PORT:-8080}:8080"]
+    volumes: ["${HOLDINGS_DATA:-holdings-data}:/data"]
+    restart: ${HOLDINGS_RESTART:-unless-stopped}
 
 volumes:
   holdings-data:
@@ -57,6 +55,15 @@ volumes:
 ```bash
 docker compose up -d --build
 ```
+
+Every value has a default, so it works as is. To change one, set the variable in your shell or in a `.env` file beside `compose.yaml`:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `HOLDINGS_BIND` | `127.0.0.1` | Host address to publish on. Leave it on the loopback address (see the security note above). |
+| `HOLDINGS_PORT` | `8080` | Host port. |
+| `HOLDINGS_DATA` | `holdings-data` | Named volume, or a folder path such as `./data`, for your data. |
+| `HOLDINGS_RESTART` | `unless-stopped` | Restart policy. |
 
 ## Settings
 
