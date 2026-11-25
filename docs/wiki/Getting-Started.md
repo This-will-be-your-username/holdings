@@ -23,6 +23,8 @@ go build -o fundtrack .
 
 If you change anything under `web/`, rebuild: the assets are baked into the binary.
 
+Prefer not to install Go? See [Running with Docker](Running-with-Docker.md).
+
 ## Settings (environment variables)
 
 | Variable | Default | Meaning |

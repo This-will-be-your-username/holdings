@@ -2,6 +2,7 @@
 
 * [Home](Home.md)
 * [Getting Started](Getting-Started.md)
+* [Running with Docker](Running-with-Docker.md)
 
 **Using it**
 

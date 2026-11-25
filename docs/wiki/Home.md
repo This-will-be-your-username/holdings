@@ -25,7 +25,7 @@ It runs on your own computer as a small web app. Your data stays in a single fil
 
 ## Start here
 
-1. [Getting Started](Getting-Started.md): run the app and try it with test data.
+1. [Getting Started](Getting-Started.md): run the app and try it with test data. Or [run it with Docker](Running-with-Docker.md).
 2. [Transactions](Transactions.md) or [Importing Transactions](Importing-Transactions.md): get your own data in.
 3. [Configuration and Data](Configuration-and-Data.md): where your data lives, backups and privacy.
 4. [Limitations and FAQ](Limitations-and-FAQ.md): what is and isn't modelled.
