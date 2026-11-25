@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -107,7 +107,7 @@ const fakeResults = `<html><body>
 
 func fakeSearch(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, fakeResults)
+		io.WriteString(w, fakeResults)
 	}))
 	old := searchBase
 	searchBase = srv.URL
