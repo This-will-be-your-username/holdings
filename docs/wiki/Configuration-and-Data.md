@@ -21,12 +21,17 @@ The Telegram bot token and approved chat are edited on the **Settings** page and
 | `telegram.json` (same folder) | Telegram bot token and approved chat (owner-only). |
 | `fundtrack-test.json` (same folder) | The simulated test data. |
 | `mode` (same folder) | Remembers whether test mode is on. |
+| `<data file>.<date-time>.bak` | The data as it was before an [import](Export-and-Import.md). Safe to delete. |
 
 The file is plain JSON. It is written atomically each time you change something, so a crash doesn't leave a half-written file.
 
 ## Backups
 
-Copy the data file. That's all of your data. (Under Docker, see [Running with Docker](Running-with-Docker.md#your-data).) To restore, put it back and restart. You can also use **Export transactions CSV** on the dashboard as a portable backup of your transactions: the app's own export re-imports as 100% already recorded, and as new transactions into an empty database.
+Copy the data file. That's all of your data. (Under Docker, see [Running with Docker](Running-with-Docker.md#your-data).) To restore, put it back and restart.
+
+Or use **Export everything** on the **Settings** page: one file with all your data (and optionally the Telegram settings) that can be imported into this or another installation from the same page. See [Export and Import](Export-and-Import.md). Each import keeps the data it replaces as `fundtrack.json.<date-time>.bak` beside the data file.
+
+You can also use **Export transactions CSV** on the dashboard as a portable backup of your transactions: the app's own export re-imports as 100% already recorded, and as new transactions into an empty database.
 
 To start fresh, stop the app and move the data file aside.
 

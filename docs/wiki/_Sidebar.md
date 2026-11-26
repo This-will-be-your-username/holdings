@@ -31,5 +31,6 @@
 
 * [Test Mode](Test-Mode.md)
 * [Configuration and Data](Configuration-and-Data.md)
+* [Export and Import](Export-and-Import.md)
 * [Architecture](Architecture.md)
 * [Limitations and FAQ](Limitations-and-FAQ.md)

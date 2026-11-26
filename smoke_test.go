@@ -30,6 +30,8 @@ func TestEveryPageRendersOnTestData(t *testing.T) {
 		{"/outlook?scenario=trend", "Outlook"},
 		{"/prices", "Fund prices"},
 		{"/settings", "Telegram bot"},
+		{"/settings", "Export everything"},
+		{"/export/backup.json", `"format": "holdings-backup"`},
 		{"/plan", "Target allocation"},
 		{"/estimator", "Sell estimator"},
 		{"/estimator?run=1&sym=VGS.AX&units=10&fees=9.5&method=fifo", "Before or after the 1 July 2027 CGT change?"},

@@ -100,6 +100,8 @@ docker cp ./fundtrack-backup.json holdings:/data/fundtrack.json
 docker restart holdings
 ```
 
+**Move to another installation** with **Export everything** on the Settings page, or `docker exec holdings holdings export > holdings-backup.json`. See [Export and Import](Export-and-Import.md).
+
 **Use a folder instead of a named volume** (for example to keep the data beside your other files) by swapping the `-v` option for `-v "$(pwd)/data:/data"` (PowerShell: `-v "${PWD}/data:/data"`). On Linux the folder must be writable by uid 10001, for example `sudo chown 10001 data`.
 
 If you already have a `data/fundtrack.json` from running the app directly, you can use it with the bind mount above.

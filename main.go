@@ -71,6 +71,7 @@ func (a *App) routes() http.Handler {
 	a.registerTxnEdit(mux)
 	a.registerOwners(mux)
 	a.registerSettings(mux)
+	a.registerMigrate(mux)
 	mux.HandleFunc("GET /charts", a.chartsPage)
 	mux.HandleFunc("POST /prices", a.addPrices)
 	mux.HandleFunc("POST /refresh", func(w http.ResponseWriter, r *http.Request) {
@@ -96,6 +97,9 @@ func (a *App) routes() http.Handler {
 func main() {
 	addr := env("ADDR", "127.0.0.1:8080")
 	dataFile := env("DATA_FILE", "data/fundtrack.json")
+	if handled, code := runCLI(os.Args[1:], dataFile, os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	a, err := newApp(dataFile)
 	if err != nil {
 		log.Fatal(err)

@@ -1,6 +1,27 @@
 {{define "content"}}
 <div class="head"><div><h1>Settings</h1>
-<p class="muted">Connect a Telegram bot to check your holdings from your phone: ask it to pull fresh prices, send a snapshot of the latest prices, and draw small graphs of the last week.</p></div></div>
+<p class="muted">Move your data to another installation, and connect a Telegram bot to check your holdings from your phone.</p></div></div>
+
+<section class="card" id="migrate">
+  <div class="card-h"><h2>Export and import</h2></div>
+  <p class="s">An export is one file holding everything: transactions, instruments, prices (fetched and manual), distributions, exchange rates, the import log, tax settings, owners, targets and private-company checkpoints. Import it into another installation to move there.{{if .Test}} <b>Test mode is on</b>, so this exports and imports the test dataset.{{end}}</p>
+
+  <form method="get" action="/export/backup.json" class="stack">
+    <label class="check"><input type="checkbox" name="telegram" value="1"> Include the Telegram bot token and approved chat (keep the file private)</label>
+    <div><button class="btn primary">⬇ Export everything</button></div>
+  </form>
+
+  <form method="post" action="/settings/import" enctype="multipart/form-data" class="stack"
+        onsubmit="return confirm('Replace {{if .Test}}the test data{{else}}all of your current data{{end}} with the contents of this file? A copy of the current data file is kept beside it.')">
+    <label>Export file
+      <input type="file" name="file" accept=".json,.gz,application/json,application/gzip" required>
+    </label>
+    <label class="check"><input type="checkbox" name="telegram" value="1"> Also restore Telegram settings, if the file has them</label>
+    <label class="check"><input type="checkbox" name="confirm" value="1" required> Replace my current data with this file</label>
+    <div><button class="btn danger">Import</button></div>
+  </form>
+  <p class="muted s">Import accepts an export from this page or a plain <code>fundtrack.json</code> data file from another installation (either may be gzipped). It <b>replaces</b> the current data rather than merging; to add transactions to existing data, use the <a href="/transactions#import">transaction import</a> instead. The data being replaced is first copied to <code>fundtrack.json.&lt;date-time&gt;.bak</code>. After importing, press <b>Refresh prices</b> to bring prices up to date.</p>
+</section>
 
 <section class="card" id="telegram">
   <div class="card-h"><h2>Telegram bot</h2>
