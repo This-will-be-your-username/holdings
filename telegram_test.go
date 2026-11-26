@@ -14,6 +14,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // fakeTelegram records what the bot sends and answers like the Bot API.
@@ -336,3 +337,105 @@ func TestTelegramErrorsHideToken(t *testing.T) {
 }
 
 func readFile(p string) ([]byte, error) { return os.ReadFile(p) }
+
+func TestTelegramGroups(t *testing.T) {
+	f := newFakeTelegram(t)
+	a := testApp(t)
+	a.tgAuthorise(42)
+	c := newTG("GOOD", 5*time.Second)
+
+	// pick two listed holdings for the group; the rest stay ungrouped
+	var listed []string
+	a.st().View(func(db *DB) {
+		for _, h := range Compute(db, liveNow()).Holdings {
+			if !h.Private {
+				listed = append(listed, h.Symbol)
+			}
+		}
+	})
+	if len(listed) < 3 {
+		t.Fatalf("test data needs at least three listed holdings, got %v", listed)
+	}
+
+	srv := httptest.NewServer(a.routes())
+	defer srv.Close()
+	hc := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := hc.PostForm(srv.URL+"/settings/telegram/groups", url.Values{
+		"group:" + listed[0]: {"  Super   fund "},
+		"group:" + listed[1]: {"super FUND"}, // a different case joins the same group
+		"group:NOT-A-SYMBOL": {"Ignored"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if loc, _ := url.QueryUnescape(resp.Header.Get("Location")); !strings.Contains(loc, "2 changed") {
+		t.Fatalf("expected two holdings grouped: %s", loc)
+	}
+	var group string
+	a.st().View(func(db *DB) {
+		g := db.groupNames()
+		if len(g) != 1 || !strings.EqualFold(g[0], "Super fund") {
+			t.Fatalf("expected one tidied group, got %q", g)
+		}
+		group = g[0]
+	})
+
+	// the settings page shows the editor
+	page, err := hc.Get(srv.URL + "/settings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(page.Body)
+	page.Body.Close()
+	if !strings.Contains(string(body), `name="group:`+listed[0]+`" value="`+group+`"`) {
+		t.Fatal("settings page should show each holding's group")
+	}
+
+	a.tgCommand(c, 42, "/prices")
+	f.mu.Lock()
+	text := f.texts[len(f.texts)-1]
+	iSuper, iOther := strings.Index(text, "📁 <b>"+group+"</b>"), strings.Index(text, "📁 <b>Other</b>")
+	if iSuper < 0 || iOther < iSuper {
+		t.Fatalf("snapshot should list the group, then Other: %q", text)
+	}
+	if i := strings.Index(text, "<b>"+short(listed[0])+"</b>"); i < iSuper || i > iOther {
+		t.Fatalf("%s should be listed under its group: %q", listed[0], text)
+	}
+	hasGroupBtn := false
+	for _, d := range f.kb {
+		hasGroupBtn = hasGroupBtn || d == "g:"+group
+	}
+	if !hasGroupBtn {
+		t.Fatalf("expected a group graph button: %v", f.kb)
+	}
+	f.photos = nil
+	f.mu.Unlock()
+
+	a.tgCommand(c, 42, "/graph super fund")
+	f.mu.Lock()
+	if len(f.photos) != 2 {
+		t.Fatalf("/graph <group> should send the group's two graphs, got %d", len(f.photos))
+	}
+	f.mu.Unlock()
+
+	// clearing every group brings back the plain list
+	resp, _ = hc.PostForm(srv.URL+"/settings/telegram/groups", url.Values{"group:" + listed[0]: {""}, "group:" + listed[1]: {""}})
+	resp.Body.Close()
+	a.tgCommand(c, 42, "/prices")
+	f.mu.Lock()
+	if text := f.texts[len(f.texts)-1]; strings.Contains(text, "📁") {
+		t.Fatalf("no groups should mean no headings: %q", text)
+	}
+	f.mu.Unlock()
+}
+
+func TestCleanGroup(t *testing.T) {
+	if g := cleanGroup("  a   b  "); g != "a b" {
+		t.Fatalf("got %q", g)
+	}
+	long := strings.Repeat("é", 30) // 60 bytes
+	if g := cleanGroup(long); len(g) > maxGroupLen || !utf8.ValidString(g) {
+		t.Fatalf("long name not trimmed on a rune boundary: %q (%d bytes)", g, len(g))
+	}
+}

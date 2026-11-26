@@ -21,9 +21,18 @@ You can also type a chat id into **Approved chat id** yourself. **Send a test me
 | `/prices` | Sends a snapshot: each holding's latest price, its move since the previous saved price, and the portfolio value. |
 | `/graph` | Sends a small graph of the last seven days for each holding (up to 10 at once). |
 | `/graph VGS` | The graph for one holding. |
+| `/graph Super` | The graphs for every holding in a group (see below). |
 | `/help` | Lists the commands. |
 
 Every snapshot ends with buttons offering the graphs: **All holdings**, or one button per holding. Each graph is a small PNG (green when the week is up, red when down) with the latest price, the change over the week, and the low and high in the caption. If a holding has fewer than two saved prices in the window, its last few saved prices are used, so a long weekend still draws something. Private companies have no price history and are left out.
+
+## Grouping holdings
+
+With many holdings the snapshot gets long. On **Settings**, open **Group holdings in the snapshot** under the Telegram bot and type a group name against any holding, such as *Super*, *Kids* or *Growth*. Names suggest the ones already in use, and a different case joins the same group (`super` joins `Super`). Press **Save groups**.
+
+The snapshot then lists each group under its own heading, in alphabetical order, with the group's value in A$ and its value-weighted move since the previous saved price. Holdings without a group come last under **Other**. Each group also gets a graph button, and `/graph Super` sends that group's graphs. Clear every box to go back to the plain list.
+
+Groups are saved with each instrument in the data file, so an [export](Export-and-Import.md) carries them to another installation. Private companies are not in the snapshot, so they are not offered for grouping.
 
 ## Privacy and security
 

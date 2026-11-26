@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -12,10 +14,67 @@ func (a *App) registerSettings(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/telegram/approve", a.approveTelegram)
 	mux.HandleFunc("POST /settings/telegram/test", a.testTelegram)
 	mux.HandleFunc("POST /settings/telegram/forget", a.forgetTelegram)
+	mux.HandleFunc("POST /settings/telegram/groups", a.saveTelegramGroups)
+}
+
+// groupRow is one holding on the Settings page's Telegram groups form.
+type groupRow struct {
+	Symbol, Short, Name, Group string
 }
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, "settings", map[string]any{"TG": a.telegramView()})
+	var rows []groupRow
+	var names []string
+	a.st().View(func(db *DB) {
+		for _, h := range Compute(db, liveNow()).Holdings {
+			if h.Private { // not in the snapshot, so nothing to group
+				continue
+			}
+			rows = append(rows, groupRow{Symbol: h.Symbol, Short: short(h.Symbol), Name: h.Name, Group: db.groupOf(h.Symbol)})
+		}
+		names = db.groupNames()
+	})
+	a.render(w, r, "settings", map[string]any{"TG": a.telegramView(), "Groups": rows, "GroupNames": names})
+}
+
+// saveTelegramGroups stores the group typed against each holding (form fields "group:<symbol>").
+func (a *App) saveTelegramGroups(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	n := 0
+	err := a.st().Update(func(db *DB) error {
+		// One spelling per group regardless of case, so "super" joins "Super". Existing names win, then the first
+		// spelling typed (in symbol order, so the result doesn't depend on form order).
+		spelling := map[string]string{}
+		for _, g := range db.groupNames() {
+			spelling[strings.ToLower(g)] = g
+		}
+		var syms []string
+		for k := range r.PostForm {
+			if sym, ok := strings.CutPrefix(k, "group:"); ok && db.Instruments[sym] != nil {
+				syms = append(syms, sym)
+			}
+		}
+		sort.Strings(syms)
+		for _, sym := range syms {
+			in := db.Instruments[sym]
+			g := cleanGroup(r.PostForm.Get("group:" + sym))
+			if s, ok := spelling[strings.ToLower(g)]; ok {
+				g = s
+			} else if g != "" {
+				spelling[strings.ToLower(g)] = g
+			}
+			if in.Group != g {
+				in.Group = g
+				n++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		redirect(w, r, "/settings", "", "Couldn't save: "+err.Error())
+		return
+	}
+	redirect(w, r, "/settings", fmt.Sprintf("Telegram groups saved (%d changed).", n), "")
 }
 
 func (a *App) saveTelegram(w http.ResponseWriter, r *http.Request) {

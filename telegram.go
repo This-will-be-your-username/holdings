@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // Telegram bot.
@@ -395,7 +396,8 @@ const tgHelp = "<b>Holdings bot</b>\n" +
 	"/refresh – pull fresh prices, then send a snapshot\n" +
 	"/prices – snapshot of the latest prices\n" +
 	"/graph – last week's price graphs for every holding\n" +
-	"/graph VGS – the graph for one holding"
+	"/graph VGS – the graph for one holding\n" +
+	"/graph Super – the graphs for one group"
 
 // ---------- snapshot ----------
 
@@ -468,7 +470,7 @@ func (a *App) tgSnapshot(c *tgClient, chat int64, intro string) {
 	now := liveNow()
 	var sb strings.Builder
 	sb.WriteString(intro)
-	var syms []string
+	var syms, groups []string
 	test := a.inTest()
 	a.st().View(func(db *DB) {
 		res := Compute(db, now)
@@ -484,15 +486,29 @@ func (a *App) tgSnapshot(c *tgClient, chat int64, intro string) {
 			sb.WriteString("No open holdings yet.")
 			return
 		}
+		type line struct {
+			h      *Holding
+			day    float64
+			hasDay bool
+		}
+		var lines []line
 		for _, h := range res.Holdings {
 			if h.Private {
 				continue
 			}
-			pts := weekSeries(db, h.Symbol, now)
+			l := line{h: h}
+			if pts := weekSeries(db, h.Symbol, now); len(pts) >= 2 {
+				n := len(pts)
+				l.day, l.hasDay = pctMove(pts[n-2].Value, pts[n-1].Value), true
+			}
+			lines = append(lines, l)
+			syms = append(syms, h.Symbol)
+		}
+		writeLine := func(l line) {
+			h := l.h
 			day := ""
-			if n := len(pts); n >= 2 {
-				ch := pctMove(pts[n-2].Value, pts[n-1].Value)
-				day = fmt.Sprintf(" %s %+.2f%%", arrow(ch), ch)
+			if l.hasDay {
+				day = fmt.Sprintf(" %s %+.2f%%", arrow(l.day), l.day)
 			}
 			ccy := h.Currency
 			if ccy == "" {
@@ -502,7 +518,40 @@ func (a *App) tgSnapshot(c *tgClient, chat int64, intro string) {
 			if h.PriceDate != "" {
 				fmt.Fprintf(&sb, " <i>%s</i>", h.PriceDate)
 			}
-			syms = append(syms, h.Symbol)
+		}
+		byGroup := map[string][]line{}
+		for _, l := range lines {
+			g := db.groupOf(l.h.Symbol)
+			byGroup[g] = append(byGroup[g], l)
+		}
+		if _, plain := byGroup[""]; plain && len(byGroup) == 1 { // no groups set up: the plain list, as before
+			for _, l := range lines {
+				writeLine(l)
+			}
+		} else {
+			// Each group gets a heading with its value and its value-weighted move since the previous saved price.
+			for _, g := range sortedGroups(byGroup) {
+				var value, wsum, wday float64
+				for _, l := range byGroup[g] {
+					value += l.h.ValueAUD
+					if l.hasDay && l.h.ValueAUD > 0 {
+						wsum += l.h.ValueAUD
+						wday += l.h.ValueAUD * l.day
+					}
+				}
+				fmt.Fprintf(&sb, "\n📁 <b>%s</b> · A$%s", html.EscapeString(groupLabel(g)), commas(value, 0))
+				if wsum > 0 {
+					d := wday / wsum
+					fmt.Fprintf(&sb, " %s %+.2f%%", arrow(d), d)
+				}
+				for _, l := range byGroup[g] {
+					writeLine(l)
+				}
+				sb.WriteString("\n")
+				if g != "" {
+					groups = append(groups, g)
+				}
+			}
 		}
 		if res.Total != nil {
 			fmt.Fprintf(&sb, "\n\n<b>Portfolio</b> A$%s", commas(res.Total.ValueAUD, 0))
@@ -516,6 +565,15 @@ func (a *App) tgSnapshot(c *tgClient, chat int64, intro string) {
 		sb.WriteString("\n\n📈 Want small graphs of the last week?")
 		kb = append(kb, []tgButton{{"📈 All holdings", "g:ALL"}})
 		var row []tgButton
+		for _, g := range groups {
+			row = append(row, tgButton{"📁 " + g, "g:" + g})
+			if len(row) == 2 {
+				kb, row = append(kb, row), nil
+			}
+		}
+		if len(row) > 0 {
+			kb, row = append(kb, row), nil
+		}
 		for _, s := range syms {
 			row = append(row, tgButton{short(s), "g:" + s})
 			if len(row) == 3 {
@@ -535,7 +593,69 @@ func (a *App) tgSnapshot(c *tgClient, chat int64, intro string) {
 
 const maxGraphs = 10
 
-// tgGraphs sends one small week graph per holding: all of them, or the one named (VGS and VGS.AX both work).
+// ---------- groups ----------
+
+// maxGroupLen keeps a group name short enough for a button's callback data (Telegram allows 64 bytes).
+const maxGroupLen = 40
+
+// cleanGroup tidies a group name typed on the Settings page.
+func cleanGroup(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	for len(s) > maxGroupLen {
+		_, n := utf8.DecodeLastRuneInString(s)
+		s = s[:len(s)-n]
+	}
+	return strings.TrimSpace(s)
+}
+
+// groupOf is the Telegram group a holding belongs to ("" = none).
+func (d *DB) groupOf(sym string) string {
+	if in := d.Instruments[sym]; in != nil {
+		return in.Group
+	}
+	return ""
+}
+
+// groupNames lists the distinct groups in use, sorted.
+func (d *DB) groupNames() []string {
+	set := map[string]bool{}
+	for _, in := range d.Instruments {
+		if in.Group != "" {
+			set[in.Group] = true
+		}
+	}
+	out := make([]string, 0, len(set))
+	for g := range set {
+		out = append(out, g)
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i]) < strings.ToLower(out[j]) })
+	return out
+}
+
+// sortedGroups orders group names alphabetically, with the ungrouped holdings ("") last.
+func sortedGroups[T any](m map[string]T) []string {
+	out := make([]string, 0, len(m))
+	for g := range m {
+		out = append(out, g)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if (out[i] == "") != (out[j] == "") {
+			return out[j] == ""
+		}
+		return strings.ToLower(out[i]) < strings.ToLower(out[j])
+	})
+	return out
+}
+
+func groupLabel(g string) string {
+	if g == "" {
+		return "Other"
+	}
+	return g
+}
+
+// tgGraphs sends one small week graph per holding: all of them, the one named (VGS and VGS.AX both work), or every
+// holding in the named group.
 func (a *App) tgGraphs(c *tgClient, chat int64, which string) {
 	now := liveNow()
 	type item struct {
@@ -549,7 +669,8 @@ func (a *App) tgGraphs(c *tgClient, chat int64, which string) {
 			if h.Private {
 				continue
 			}
-			if which != "ALL" && !strings.EqualFold(h.Symbol, which) && !strings.EqualFold(short(h.Symbol), which) {
+			if which != "ALL" && !strings.EqualFold(h.Symbol, which) && !strings.EqualFold(short(h.Symbol), which) &&
+				!(db.groupOf(h.Symbol) != "" && strings.EqualFold(db.groupOf(h.Symbol), which)) {
 				continue
 			}
 			ccy := h.Currency

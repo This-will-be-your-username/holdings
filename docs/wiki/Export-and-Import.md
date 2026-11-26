@@ -7,7 +7,7 @@ Move everything from one installation to another (a new computer, from running t
 An export is a single JSON file holding your whole data file:
 
 - transactions, including their fingerprints and source references, so later broker imports still recognise duplicates
-- instruments, with roles, targets, owners and other details
+- instruments, with roles, targets, owners, Telegram groups and other details
 - fetched and manually entered prices, distributions and exchange rates
 - the import log
 - tax settings and [owners](Owners.md)

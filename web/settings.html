@@ -4,7 +4,7 @@
 
 <section class="card" id="migrate">
   <div class="card-h"><h2>Export and import</h2></div>
-  <p class="s">An export is one file holding everything: transactions, instruments, prices (fetched and manual), distributions, exchange rates, the import log, tax settings, owners, targets and private-company checkpoints. Import it into another installation to move there.{{if .Test}} <b>Test mode is on</b>, so this exports and imports the test dataset.{{end}}</p>
+  <p class="s">An export is one file holding everything: transactions, instruments, prices (fetched and manual), distributions, exchange rates, the import log, tax settings, owners, targets, Telegram groups and private-company checkpoints. Import it into another installation to move there.{{if .Test}} <b>Test mode is on</b>, so this exports and imports the test dataset.{{end}}</p>
 
   <form method="get" action="/export/backup.json" class="stack">
     <label class="check"><input type="checkbox" name="telegram" value="1"> Include the Telegram bot token and approved chat (keep the file private)</label>
@@ -58,13 +58,34 @@
   </div>
   {{end}}
 
+  <details class="fund-more" id="tg-groups" {{if .GroupNames}}open{{end}}><summary>Group holdings in the snapshot</summary>
+    <p class="s">Give holdings a group name (for example <i>Super</i>, <i>Kids</i> or <i>Growth</i>) and the snapshot lists them under that heading, with the group's value and its value-weighted move. Holdings with no group go under <i>Other</i>. Leave every box blank for the plain list. <code>/graph Super</code> sends a group's graphs, and each group gets its own graph button.</p>
+    {{if .Groups}}
+    <form method="post" action="/settings/telegram/groups" class="stack">
+      <datalist id="tg-group-names">{{range .GroupNames}}<option value="{{.}}">{{end}}</datalist>
+      <div class="scroll"><table>
+        <thead><tr><th>Holding</th><th>Group</th></tr></thead>
+        <tbody>
+        {{range .Groups}}
+        <tr><td><b>{{.Short}}</b> <span class="muted s">{{.Name}}</span></td>
+            <td><input name="group:{{.Symbol}}" value="{{.Group}}" list="tg-group-names" maxlength="40" autocomplete="off" placeholder="Other"></td></tr>
+        {{end}}
+        </tbody>
+      </table></div>
+      <div><button class="btn primary">Save groups</button></div>
+    </form>
+    {{else}}
+    <p class="muted s">No open holdings yet.</p>
+    {{end}}
+  </details>
+
   <details class="fund-more"><summary>How to set it up</summary>
     <ol class="s">
       <li>In Telegram, open <b>@BotFather</b>, send <code>/newbot</code> and follow the prompts. It gives you a token.</li>
       <li>Paste the token above, tick <b>Turn the bot on</b> and save.</li>
       <li>Open your new bot and send <code>/start</code>. Come back here and press <b>Approve this chat</b>.</li>
     </ol>
-    <p class="s">Commands: <code>/refresh</code> pulls fresh prices then sends a snapshot; <code>/prices</code> sends the snapshot; <code>/graph</code> or <code>/graph VGS</code> sends last week's graphs. Each snapshot also has buttons offering the graphs.</p>
+    <p class="s">Commands: <code>/refresh</code> pulls fresh prices then sends a snapshot; <code>/prices</code> sends the snapshot; <code>/graph</code>, <code>/graph VGS</code> or <code>/graph Super</code> (a group) sends last week's graphs. Each snapshot also has buttons offering the graphs.</p>
   </details>
 
   <p class="muted s"><b>Privacy:</b> the bot only answers the one approved chat; anyone else is refused. It connects out to Telegram (no port is opened on your computer). Messages carry prices, symbols and your portfolio total, so they pass through Telegram's servers. The token is stored in <code>telegram.json</code> beside your data file, not in the data file itself.</p>

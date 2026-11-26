@@ -46,6 +46,9 @@ type Instrument struct {
 
 	// Owner is who holds this investment, for tax (optional; see owners.go). Blank = the default owner.
 	Owner string `json:"owner,omitempty"`
+
+	// Group gathers holdings under one heading in the Telegram snapshot (optional; see telegram.go). Blank = "Other".
+	Group string `json:"group,omitempty"`
 }
 
 // Txn is a single user transaction. Price/Amount are in the instrument's
