@@ -38,15 +38,21 @@ What the options do:
 
 ## Docker Compose
 
-The easiest way. Save this as `compose.yaml` (or use the one in the repository root); it pulls the published image, so no clone or build is needed:
+The easiest way. Save this as `compose.yaml` (or use the one in the repository root). It pulls the published image, so no clone or build is needed:
 
 ```yaml
+---
 services:
   holdings:
-    image: ${HOLDINGS_IMAGE:-ghcr.io/this-will-be-your-username/holdings:latest}
-    ports: ["${HOLDINGS_BIND:-127.0.0.1}:${HOLDINGS_PORT:-8080}:8080"]
-    volumes: ["${HOLDINGS_DATA:-holdings-data}:/data"]
-    restart: ${HOLDINGS_RESTART:-unless-stopped}
+    image: ghcr.io/this-will-be-your-username/holdings:latest
+    container_name: holdings
+    environment:
+      - TZ=Etc/UTC
+    volumes:
+      - holdings-data:/data
+    ports:
+      - 127.0.0.1:8080:8080
+    restart: unless-stopped
 
 volumes:
   holdings-data:
@@ -56,15 +62,16 @@ volumes:
 docker compose up -d
 ```
 
-Every value has a default, so it works as is. To change one, set the variable in your shell or in a `.env` file beside `compose.yaml`:
+The layout follows the one [LinuxServer.io](https://www.linuxserver.io/) uses for its images. It works as is; to change something, edit the file:
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `HOLDINGS_IMAGE` | `ghcr.io/this-will-be-your-username/holdings:latest` | Image to run. Pin a version tag such as `:1.2.3` if you like, or use a locally built image such as `holdings`. |
-| `HOLDINGS_BIND` | `127.0.0.1` | Host address to publish on. Leave it on the loopback address (see the security note above). |
-| `HOLDINGS_PORT` | `8080` | Host port. |
-| `HOLDINGS_DATA` | `holdings-data` | Named volume, or a folder path such as `./data`, for your data. |
-| `HOLDINGS_RESTART` | `unless-stopped` | Restart policy. |
+| Setting | Meaning |
+|---|---|
+| `image` | Image to run. Pin a version tag such as `:1.2.3` if you like, or use a locally built image such as `holdings`. |
+| `container_name` | The name used by `docker logs`, `docker cp` and the other commands on this page. |
+| `TZ` | Your [timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), for example `Australia/Sydney`. Affects log times. |
+| `holdings-data:/data` | Where your data lives. Replace `holdings-data` with a folder path such as `./data` to keep it beside your other files (see Your data below), and then remove the `volumes:` block at the bottom. |
+| `127.0.0.1:8080:8080` | Host address, host port, container port. Change the middle number for a different host port, and keep `127.0.0.1:` in front (see the security note above). |
+| `restart` | Restart policy. |
 
 ## Settings
 
